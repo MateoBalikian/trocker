@@ -1,0 +1,4 @@
+trocker/ 
+__pycache__/ 
+*.pyc 
+test.py 
