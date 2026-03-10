@@ -350,8 +350,10 @@ Item {
                                 onClicked: {
                                     if (card.proj) {
                                         root.openedProject = card.proj
-                                        if (videosManager)
+                                        if (videosManager) {
                                             videosManager.setProject(card.proj.path)
+                                            videosManager.setProjectName(card.proj.name)
+                                        }
                                         root.subView = 1
                                     }
                                 }

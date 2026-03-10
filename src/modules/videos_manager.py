@@ -4,14 +4,16 @@ from PySide6.QtCore import QObject, Property, Signal, Slot
 
 
 class VideosManager(QObject):
-    videosChanged = Signal()
-    activeVideoChanged = Signal()
+    videosChanged       = Signal()
+    activeVideoChanged  = Signal()
+    activeProjectChanged = Signal()
 
     VIDEO_EXTS = {".mp4", ".avi", ".mov", ".mkv", ".webm"}
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._project_path = ""
+        self._project_name = ""
         self._active_video = ""
         self._duration_cache: dict[str, str] = {}
         self._thumbnail_cache: dict[str, str] = {}
@@ -70,6 +72,15 @@ class VideosManager(QObject):
         self._thumbnail_cache.clear()
         self.videosChanged.emit()
         self.activeVideoChanged.emit()
+
+    @Slot(str)
+    def setProjectName(self, name: str):
+        self._project_name = name
+        self.activeProjectChanged.emit()
+
+    @Property(str, notify=activeProjectChanged)
+    def activeProjectName(self):
+        return self._project_name
 
     @Property(list, notify=videosChanged)
     def videos(self):

@@ -14,8 +14,10 @@ Item {
     signal backClicked()
 
     onProjectPathChanged: {
-        if (videosManager && projectPath.length > 0)
+        if (videosManager && projectPath.length > 0) {
             videosManager.setProject(projectPath)
+            videosManager.setProjectName(root.projectName)
+        }
     }
 
     // Accent palette — same as ProjectsPage

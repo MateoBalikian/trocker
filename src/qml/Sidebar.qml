@@ -85,8 +85,9 @@ Item {
                 Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
             }
 
-            // Project badge
+            // Active video badge
             Rectangle {
+                id: activeBadge
                 anchors.left:        parent.left
                 anchors.right:       parent.right
                 anchors.leftMargin:  14
@@ -96,30 +97,69 @@ Item {
                 height: 26
                 radius: 7
                 color:  theme.surface2
-                border.color: theme.border
+                border.color: hasActiveVideo
+                              ? Qt.rgba(0, 113/255, 227/255, 0.30)
+                              : theme.border
                 border.width: 1
                 opacity: root.collapsed ? 0 : 1
-                Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                Behavior on border.color { ColorAnimation { duration: 250 } }
+                Behavior on opacity      { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+
+                // Computed badge state from QML context
+                property bool   hasActiveVideo: videosManager ? videosManager.activeVideo   !== "" : false
+                property string activeVidName:  videosManager ? videosManager.activeVideo         : ""
+                property string activeProjName: videosManager ? videosManager.activeProjectName   : ""
+
+                property string badgeText: {
+                    if (hasActiveVideo)
+                        return (activeProjName !== "" ? activeProjName + " · " : "") + activeVidName
+                    if (activeProjName !== "")
+                        return activeProjName
+                    return "No active video"
+                }
 
                 Row {
                     anchors.left:           parent.left
                     anchors.leftMargin:     9
+                    anchors.right:          parent.right
+                    anchors.rightMargin:    9
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 7
 
+                    // Pulsing dot
                     Rectangle {
+                        id: statusDot
                         width: 6; height: 6; radius: 3
-                        color: theme.green
                         anchors.verticalCenter: parent.verticalCenter
+                        color: activeBadge.hasActiveVideo
+                               ? theme.green
+                               : Qt.rgba(
+                                   theme.textMuted.r,
+                                   theme.textMuted.g,
+                                   theme.textMuted.b,
+                                   0.45
+                                 )
+                        Behavior on color { ColorAnimation { duration: 300 } }
+
+                        SequentialAnimation on opacity {
+                            running:  activeBadge.hasActiveVideo
+                            loops:    Animation.Infinite
+                            NumberAnimation { from: 1.0; to: 0.35; duration: 900; easing.type: Easing.InOutSine }
+                            NumberAnimation { from: 0.35; to: 1.0; duration: 900; easing.type: Easing.InOutSine }
+                            onStopped: statusDot.opacity = 1
+                        }
                     }
 
                     Text {
-                        text:           "Nenhum projeto ativo"
+                        width:          parent.width - statusDot.width - parent.spacing
+                        text:           activeBadge.badgeText
                         font.family:    "Poppins"
                         font.pixelSize: 10
-                        font.weight:    Font.Medium
-                        color:          theme.textMuted
+                        font.weight:    activeBadge.hasActiveVideo ? Font.SemiBold : Font.Medium
+                        color:          activeBadge.hasActiveVideo ? theme.textPrimary : theme.textMuted
+                        elide:          Text.ElideRight
                         anchors.verticalCenter: parent.verticalCenter
+                        Behavior on color { ColorAnimation { duration: 250 } }
                     }
                 }
             }
