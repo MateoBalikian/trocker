@@ -19,9 +19,15 @@ Item {
 
     function accentFor(i) { return accentPalette[i % accentPalette.length] }
 
+    // ── Sub-view navigation ────────────────────────────────────────────────────
+    // 0 = projects list   1 = video panel for an opened project
+    property int subView:        0
+    property var openedProject:  null
+
     // ── Header ─────────────────────────────────────────────────────────────────
     Item {
         id: header
+        visible: root.subView === 0
         anchors.top:         parent.top
         anchors.left:        parent.left
         anchors.right:       parent.right
@@ -89,6 +95,7 @@ Item {
     // ── Subtitle ───────────────────────────────────────────────────────────────
     Text {
         id: subtitle
+        visible: root.subView === 0
         anchors.top:        header.bottom
         anchors.topMargin:  4
         anchors.left:       header.left
@@ -106,7 +113,7 @@ Item {
     Column {
         anchors.centerIn: parent
         spacing:          14
-        visible:          projectsManager ? projectsManager.projects.length === 0 : true
+        visible:          root.subView === 0 && (projectsManager ? projectsManager.projects.length === 0 : true)
 
         Rectangle {
             width:  64; height: 64; radius: 16
@@ -179,7 +186,7 @@ Item {
         anchors.leftMargin:  32
         anchors.rightMargin: 32
         clip:                true
-        visible:             projectsManager ? projectsManager.projects.length > 0 : false
+        visible:             root.subView === 0 && (projectsManager ? projectsManager.projects.length > 0 : false)
 
         Flow {
             id:      cardsFlow
@@ -340,7 +347,14 @@ Item {
                                 cursorShape:  Qt.PointingHandCursor
                                 onEntered:  parent.openHov = true
                                 onExited:   parent.openHov = false
-                                onClicked:  console.log("Open project:", card.proj ? card.proj.name : "")
+                                onClicked: {
+                                    if (card.proj) {
+                                        root.openedProject = card.proj
+                                        if (videosManager)
+                                            videosManager.setProject(card.proj.path)
+                                        root.subView = 1
+                                    }
+                                }
                             }
                         }
 
@@ -418,6 +432,16 @@ Item {
             } // Repeater
         } // Flow
     } // ScrollView
+
+    // ── Video Panel (sub-view 1) ───────────────────────────────────────────────
+    VideoPanel {
+        anchors.fill: parent
+        theme:        root.theme
+        projectName:  root.openedProject ? root.openedProject.name : ""
+        projectPath:  root.openedProject ? root.openedProject.path : ""
+        visible:      root.subView === 1
+        onBackClicked: root.subView = 0
+    }
 
     // ══════════════════════════════════════════════════════════════════════════
     // New Project dialog

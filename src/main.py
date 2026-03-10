@@ -4,6 +4,7 @@ from PySide6.QtGui import QGuiApplication, QFontDatabase, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
 
 from modules.projects_manager import ProjectsManager
+from modules.videos_manager import VideosManager
 
 BASE_DIR   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FONTS_DIR  = os.path.join(BASE_DIR, "fonts")
@@ -20,9 +21,11 @@ for font_file in os.listdir(FONTS_DIR):
 app.setWindowIcon(QIcon(ICON_PATH))
 
 projects_manager = ProjectsManager(PROJ_DIR)
+videos_manager   = VideosManager()
 
 engine = QQmlApplicationEngine()
 engine.rootContext().setContextProperty("projectsManager", projects_manager)
+engine.rootContext().setContextProperty("videosManager",   videos_manager)
 engine.load(QML_MAIN)
 
 if not engine.rootObjects():
