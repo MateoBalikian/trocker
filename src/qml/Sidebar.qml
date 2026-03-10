@@ -32,6 +32,7 @@ Item {
         id: surface
         anchors.fill: parent
         color: theme.surface
+        clip: false  // collapse button overflows rightMargin: -14, must not clip
 
         // Right border
         Rectangle {

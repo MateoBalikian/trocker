@@ -9,6 +9,7 @@ Window {
     minimumWidth: 960
     minimumHeight: 600
     title: "Trocker"
+    color: "#111114"  // prevents white flash before QML renders
     visible: true
 
     property bool collapsed:   false
