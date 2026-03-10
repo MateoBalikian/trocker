@@ -67,7 +67,7 @@ Item {
         anchors.leftMargin:     10
         anchors.verticalCenter: parent.verticalCenter
         text:           root.label
-        font.family:    "Poppins"
+        font.family:    root.theme.fontBody
         font.pixelSize: 12
         font.weight:    root.active ? Font.DemiBold : Font.Normal
         color: root.active ? theme.textPrimary : theme.textMuted

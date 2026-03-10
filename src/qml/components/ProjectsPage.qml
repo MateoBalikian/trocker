@@ -39,9 +39,9 @@ Item {
         Text {
             anchors.verticalCenter: parent.verticalCenter
             text:               "Projects"
-            font.family:        "Rajdhani"
-            font.weight:        Font.Bold
-            font.pixelSize:     28
+            font.family:        theme.fontDisplay
+            font.weight:        Font.Normal
+            font.pixelSize:     32
             font.letterSpacing: 1
             color:              theme.textPrimary
         }
@@ -73,7 +73,7 @@ Item {
                 }
                 Text {
                     text:             "New Project"
-                    font.family:      "Poppins"
+                    font.family:      theme.fontBody
                     font.pixelSize:   12
                     font.weight:      Font.Medium
                     color:            "white"
@@ -104,7 +104,7 @@ Item {
             return n === 0 ? "No projects yet"
                            : n + " project" + (n === 1 ? "" : "s")
         }
-        font.family:    "Poppins"
+        font.family:    theme.fontBody
         font.pixelSize: 11
         color:          theme.textMuted
     }
@@ -133,16 +133,16 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text:               "No projects yet"
-            font.family:        "Rajdhani"
-            font.weight:        Font.Bold
-            font.pixelSize:     22
+            font.family:        theme.fontDisplay
+            font.weight:        Font.Normal
+            font.pixelSize:     26
             color:              theme.textPrimary
         }
 
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text:           "Create your first project to start tracking"
-            font.family:    "Poppins"
+            font.family:    theme.fontBody
             font.pixelSize: 12
             color:          theme.textMuted
         }
@@ -158,7 +158,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 text:           "+ New Project"
-                font.family:    "Poppins"
+                font.family:    theme.fontBody
                 font.pixelSize: 12
                 font.weight:    Font.Medium
                 color:          "white"
@@ -252,9 +252,9 @@ Item {
                         Text {
                             anchors.centerIn: parent
                             text:           card.proj ? card.proj.name.charAt(0).toUpperCase() : ""
-                            font.family:    "Rajdhani"
-                            font.weight:    Font.Bold
-                            font.pixelSize: 16
+                            font.family:    theme.fontDisplay
+                            font.weight:    Font.Normal
+                            font.pixelSize: 18
                             color:          card.accent
                         }
                     }
@@ -267,9 +267,9 @@ Item {
                         anchors.rightMargin:    16
                         anchors.verticalCenter: initCircle.verticalCenter
                         text:            card.proj ? card.proj.name : ""
-                        font.family:     "Rajdhani"
-                        font.weight:     Font.Bold
-                        font.pixelSize:  15
+                        font.family:     theme.fontDisplay
+                        font.weight:     Font.Normal
+                        font.pixelSize:  19
                         color:           theme.textPrimary
                         elide:           Text.ElideRight
                     }
@@ -285,7 +285,7 @@ Item {
 
                         Text {
                             text:           card.proj ? card.proj.date : ""
-                            font.family:    "Poppins"
+                            font.family:    theme.fontBody
                             font.pixelSize: 10
                             color:          theme.textMuted
                             anchors.verticalCenter: parent.verticalCenter
@@ -303,7 +303,7 @@ Item {
                                 var n = card.proj.videoCount
                                 return n + " video" + (n === 1 ? "" : "s")
                             }
-                            font.family:    "Poppins"
+                            font.family:    theme.fontBody
                             font.pixelSize: 10
                             color:          theme.textMuted
                             anchors.verticalCenter: parent.verticalCenter
@@ -334,7 +334,7 @@ Item {
                             Text {
                                 anchors.centerIn: parent
                                 text:           "Open"
-                                font.family:    "Poppins"
+                                font.family:    theme.fontBody
                                 font.pixelSize: 9
                                 font.weight:    Font.Medium
                                 color:          parent.openHov ? "white" : "#0071E3"
@@ -375,7 +375,7 @@ Item {
                             Text {
                                 anchors.centerIn: parent
                                 text:           "Rename"
-                                font.family:    "Poppins"
+                                font.family:    theme.fontBody
                                 font.pixelSize: 9
                                 font.weight:    Font.Medium
                                 color:          theme.textMuted
@@ -410,7 +410,7 @@ Item {
                             Text {
                                 anchors.centerIn: parent
                                 text:           "Delete"
-                                font.family:    "Poppins"
+                                font.family:    theme.fontBody
                                 font.pixelSize: 9
                                 font.weight:    Font.Medium
                                 color:          parent.delHov ? "#FF375F" : theme.textMuted
@@ -470,9 +470,9 @@ Item {
 
             Text {
                 text:             "New Project"
-                font.family:      "Rajdhani"
-                font.weight:      Font.Bold
-                font.pixelSize:   18
+                font.family:      theme.fontDisplay
+                font.weight:      Font.Normal
+                font.pixelSize:   20
                 color:            theme.textPrimary
             }
 
@@ -493,7 +493,7 @@ Item {
                     background:       Item {}
                     color:            theme.textPrimary
                     placeholderTextColor: theme.textMuted
-                    font.family:      "Poppins"
+                    font.family:      theme.fontBody
                     font.pixelSize:   12
                     leftPadding:      12
                     Keys.onReturnPressed: newProjectDialog.doCreate()
@@ -515,7 +515,7 @@ Item {
                     Text {
                         anchors.centerIn: parent
                         text:           "Cancel"
-                        font.family:    "Poppins"
+                        font.family:    theme.fontBody
                         font.pixelSize: 11
                         color:          theme.textMuted
                     }
@@ -538,7 +538,7 @@ Item {
                     Text {
                         anchors.centerIn: parent
                         text:           "Create"
-                        font.family:    "Poppins"
+                        font.family:    theme.fontBody
                         font.pixelSize: 11
                         font.weight:    Font.Medium
                         color:          "white"
@@ -592,9 +592,9 @@ Item {
 
             Text {
                 text:             "Rename Project"
-                font.family:      "Rajdhani"
-                font.weight:      Font.Bold
-                font.pixelSize:   18
+                font.family:      theme.fontDisplay
+                font.weight:      Font.Normal
+                font.pixelSize:   20
                 color:            theme.textPrimary
             }
 
@@ -613,7 +613,7 @@ Item {
                     anchors.margins: 1
                     background:      Item {}
                     color:           theme.textPrimary
-                    font.family:     "Poppins"
+                    font.family:     theme.fontBody
                     font.pixelSize:  12
                     leftPadding:     12
                     Keys.onReturnPressed: renameDialog.doRename()
@@ -635,7 +635,7 @@ Item {
                     Text {
                         anchors.centerIn: parent
                         text:           "Cancel"
-                        font.family:    "Poppins"
+                        font.family:    theme.fontBody
                         font.pixelSize: 11
                         color:          theme.textMuted
                     }
@@ -658,7 +658,7 @@ Item {
                     Text {
                         anchors.centerIn: parent
                         text:           "Save"
-                        font.family:    "Poppins"
+                        font.family:    theme.fontBody
                         font.pixelSize: 11
                         font.weight:    Font.Medium
                         color:          "white"
@@ -711,16 +711,16 @@ Item {
 
             Text {
                 text:             "Delete Project"
-                font.family:      "Rajdhani"
-                font.weight:      Font.Bold
-                font.pixelSize:   18
+                font.family:      theme.fontDisplay
+                font.weight:      Font.Normal
+                font.pixelSize:   20
                 color:            theme.textPrimary
             }
 
             Text {
                 width:          parent.width
                 text:           "Delete \u201c" + deleteDialog.projectName + "\u201d? This cannot be undone."
-                font.family:    "Poppins"
+                font.family:    theme.fontBody
                 font.pixelSize: 11
                 color:          theme.textMuted
                 wrapMode:       Text.WordWrap
@@ -742,7 +742,7 @@ Item {
                     Text {
                         anchors.centerIn: parent
                         text:           "Cancel"
-                        font.family:    "Poppins"
+                        font.family:    theme.fontBody
                         font.pixelSize: 11
                         color:          theme.textMuted
                     }
@@ -765,7 +765,7 @@ Item {
                     Text {
                         anchors.centerIn: parent
                         text:           "Delete"
-                        font.family:    "Poppins"
+                        font.family:    theme.fontBody
                         font.pixelSize: 11
                         font.weight:    Font.Medium
                         color:          "white"

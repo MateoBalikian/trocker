@@ -81,7 +81,7 @@ Item {
                 }
                 Text {
                     text:           "Projects"
-                    font.family:    "Poppins"
+                    font.family:    theme.fontBody
                     font.pixelSize: 11
                     color:          theme.textMuted
                     anchors.verticalCenter: parent.verticalCenter
@@ -107,16 +107,16 @@ Item {
 
             Text {
                 text:           "/"
-                font.family:    "Poppins"
+                font.family:    theme.fontBody
                 font.pixelSize: 14
                 color:          Qt.rgba(theme.textMuted.r, theme.textMuted.g, theme.textMuted.b, 0.5)
                 anchors.verticalCenter: parent.verticalCenter
             }
             Text {
                 text:               root.projectName
-                font.family:        "Rajdhani"
-                font.weight:        Font.Bold
-                font.pixelSize:     26
+                font.family:        theme.fontDisplay
+                font.weight:        Font.Normal
+                font.pixelSize:     28
                 font.letterSpacing: 0.5
                 color:              theme.textPrimary
                 anchors.verticalCenter: parent.verticalCenter
@@ -150,7 +150,7 @@ Item {
                 }
                 Text {
                     text:           "Add Video"
-                    font.family:    "Poppins"
+                    font.family:    theme.fontBody
                     font.pixelSize: 12
                     font.weight:    Font.Medium
                     color:          "white"
@@ -180,7 +180,7 @@ Item {
             return n === 0 ? "No videos yet"
                            : n + " video" + (n === 1 ? "" : "s")
         }
-        font.family:    "Poppins"
+        font.family:    theme.fontBody
         font.pixelSize: 11
         color:          theme.textMuted
     }
@@ -220,16 +220,16 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text:               "No videos yet"
-            font.family:        "Rajdhani"
-            font.weight:        Font.Bold
-            font.pixelSize:     22
+            font.family:        theme.fontDisplay
+            font.weight:        Font.Normal
+            font.pixelSize:     24
             color:              theme.textPrimary
         }
 
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text:           "Add a video to start tracking"
-            font.family:    "Poppins"
+            font.family:    theme.fontBody
             font.pixelSize: 12
             color:          theme.textMuted
         }
@@ -245,7 +245,7 @@ Item {
             Text {
                 anchors.centerIn: parent
                 text:           "+ Add Video"
-                font.family:    "Poppins"
+                font.family:    theme.fontBody
                 font.pixelSize: 12
                 font.weight:    Font.Medium
                 color:          "white"
@@ -366,9 +366,9 @@ Item {
                         anchors.top:         thumbRect.top
                         anchors.topMargin:   3
                         text:            card.vid ? card.vid.name : ""
-                        font.family:     "Rajdhani"
-                        font.weight:     Font.Bold
-                        font.pixelSize:  15
+                        font.family:     theme.fontDisplay
+                        font.weight:     Font.Normal
+                        font.pixelSize:  17
                         color:           theme.textPrimary
                         elide:           Text.ElideRight
                     }
@@ -380,7 +380,7 @@ Item {
                         anchors.top:        vidName.bottom
                         anchors.topMargin:  3
                         text:           card.vid ? card.vid.duration : ""
-                        font.family:    "Poppins"
+                        font.family:    theme.fontBody
                         font.pixelSize: 11
                         color:          theme.textMuted
                     }
@@ -400,7 +400,7 @@ Item {
                             id:              activeLbl
                             anchors.centerIn: parent
                             text:            "● Active"
-                            font.family:     "Poppins"
+                            font.family:     theme.fontBody
                             font.pixelSize:  9
                             font.weight:     Font.Medium
                             color:           "#0071E3"
@@ -434,7 +434,7 @@ Item {
                             Text {
                                 anchors.centerIn: parent
                                 text:           "Set Active"
-                                font.family:    "Poppins"
+                                font.family:    theme.fontBody
                                 font.pixelSize: 8
                                 font.weight:    Font.Medium
                                 color:          parent.setActHov ? "white" : "#0071E3"
@@ -468,7 +468,7 @@ Item {
                             Text {
                                 anchors.centerIn: parent
                                 text:           "Rename"
-                                font.family:    "Poppins"
+                                font.family:    theme.fontBody
                                 font.pixelSize: 8
                                 font.weight:    Font.Medium
                                 color:          theme.textMuted
@@ -505,7 +505,7 @@ Item {
                             Text {
                                 anchors.centerIn: parent
                                 text:           "Delete"
-                                font.family:    "Poppins"
+                                font.family:    theme.fontBody
                                 font.pixelSize: 8
                                 font.weight:    Font.Medium
                                 color:          parent.delHov ? "#FF375F" : theme.textMuted
@@ -559,9 +559,9 @@ Item {
 
             Text {
                 text:             "Rename Video"
-                font.family:      "Rajdhani"
-                font.weight:      Font.Bold
-                font.pixelSize:   18
+                font.family:      theme.fontDisplay
+                font.weight:      Font.Normal
+                font.pixelSize:   20
                 color:            theme.textPrimary
             }
 
@@ -580,7 +580,7 @@ Item {
                     anchors.margins: 1
                     background:      Item {}
                     color:           theme.textPrimary
-                    font.family:     "Poppins"
+                    font.family:     theme.fontBody
                     font.pixelSize:  12
                     leftPadding:     12
                     Keys.onReturnPressed: vidRenameDialog.doRename()
@@ -602,7 +602,7 @@ Item {
                     Text {
                         anchors.centerIn: parent
                         text:           "Cancel"
-                        font.family:    "Poppins"
+                        font.family:    theme.fontBody
                         font.pixelSize: 11
                         color:          theme.textMuted
                     }
@@ -625,7 +625,7 @@ Item {
                     Text {
                         anchors.centerIn: parent
                         text:           "Save"
-                        font.family:    "Poppins"
+                        font.family:    theme.fontBody
                         font.pixelSize: 11
                         font.weight:    Font.Medium
                         color:          "white"
@@ -677,16 +677,16 @@ Item {
 
             Text {
                 text:             "Delete Video"
-                font.family:      "Rajdhani"
-                font.weight:      Font.Bold
-                font.pixelSize:   18
+                font.family:      theme.fontDisplay
+                font.weight:      Font.Normal
+                font.pixelSize:   20
                 color:            theme.textPrimary
             }
 
             Text {
                 width:          parent.width
                 text:           "Delete \u201c" + vidDeleteDialog.videoName + "\u201d? This cannot be undone."
-                font.family:    "Poppins"
+                font.family:    theme.fontBody
                 font.pixelSize: 11
                 color:          theme.textMuted
                 wrapMode:       Text.WordWrap
@@ -708,7 +708,7 @@ Item {
                     Text {
                         anchors.centerIn: parent
                         text:           "Cancel"
-                        font.family:    "Poppins"
+                        font.family:    theme.fontBody
                         font.pixelSize: 11
                         color:          theme.textMuted
                     }
@@ -731,7 +731,7 @@ Item {
                     Text {
                         anchors.centerIn: parent
                         text:           "Delete"
-                        font.family:    "Poppins"
+                        font.family:    theme.fontBody
                         font.pixelSize: 11
                         font.weight:    Font.Medium
                         color:          "white"

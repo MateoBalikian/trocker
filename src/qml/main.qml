@@ -64,16 +64,16 @@ Window {
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text:               "Homography"
-                        font.family:        "Rajdhani"
-                        font.weight:        Font.Bold
-                        font.pixelSize:     52
+                        font.family:        theme.fontDisplay
+                        font.weight:        Font.Normal
+                        font.pixelSize:     56
                         font.letterSpacing: 2
                         color:              theme.textPrimary
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text:           "content area"
-                        font.family:    "Poppins"
+                        font.family:    theme.fontBody
                         font.pixelSize: 12
                         color:          theme.textMuted
                     }
@@ -88,16 +88,16 @@ Window {
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text:               "Reports"
-                        font.family:        "Rajdhani"
-                        font.weight:        Font.Bold
-                        font.pixelSize:     52
+                        font.family:        theme.fontDisplay
+                        font.weight:        Font.Normal
+                        font.pixelSize:     56
                         font.letterSpacing: 2
                         color:              theme.textPrimary
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text:           "content area"
-                        font.family:    "Poppins"
+                        font.family:    theme.fontBody
                         font.pixelSize: 12
                         color:          theme.textMuted
                     }
@@ -112,16 +112,16 @@ Window {
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text:               "Settings"
-                        font.family:        "Rajdhani"
-                        font.weight:        Font.Bold
-                        font.pixelSize:     52
+                        font.family:        theme.fontDisplay
+                        font.weight:        Font.Normal
+                        font.pixelSize:     56
                         font.letterSpacing: 2
                         color:              theme.textPrimary
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text:           "content area"
-                        font.family:    "Poppins"
+                        font.family:    theme.fontBody
                         font.pixelSize: 12
                         color:          theme.textMuted
                     }

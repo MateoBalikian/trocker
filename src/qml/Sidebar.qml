@@ -48,7 +48,7 @@ Item {
             anchors.top:   parent.top
             anchors.left:  parent.left
             anchors.right: parent.right
-            height: 96
+            height: 110
 
             // Logo mark — centralizes when collapsed
             Rectangle {
@@ -63,7 +63,7 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     text:           "T"
-                    font.family:    "Rajdhani"
+                    font.family:    theme.fontDisplay
                     font.weight:    Font.Bold
                     font.pixelSize: 14
                     color:          theme.bg
@@ -76,9 +76,9 @@ Item {
                 anchors.leftMargin:     8
                 anchors.verticalCenter: parent.verticalCenter
                 text:             "TROCKER"
-                font.family:      "Rajdhani"
-                font.weight:      Font.Bold
-                font.pixelSize:   15
+                font.family:      theme.fontDisplay
+                font.weight:      Font.Normal
+                font.pixelSize:   18
                 font.letterSpacing: 3
                 color:            theme.textPrimary
                 opacity:          root.collapsed ? 0 : 1
@@ -93,7 +93,7 @@ Item {
                 anchors.leftMargin:  14
                 anchors.rightMargin: 14
                 anchors.bottom:      parent.bottom
-                anchors.bottomMargin: 12
+                anchors.bottomMargin: 10
                 height: 26
                 radius: 7
                 color:  theme.surface2
@@ -153,7 +153,7 @@ Item {
                     Text {
                         width:          parent.width - statusDot.width - parent.spacing
                         text:           activeBadge.badgeText
-                        font.family:    "Poppins"
+                        font.family:    theme.fontBody
                         font.pixelSize: 10
                         font.weight:    activeBadge.hasActiveVideo ? Font.SemiBold : Font.Medium
                         color:          activeBadge.hasActiveVideo ? theme.textPrimary : theme.textMuted
@@ -193,7 +193,7 @@ Item {
                 horizontalAlignment: root.collapsed ? Text.AlignHCenter : Text.AlignLeft
                 bottomPadding:       4
                 text:             "MENU"
-                font.family:      "Poppins"
+                font.family:      theme.fontBody
                 font.pixelSize:   8
                 font.weight:      Font.SemiBold
                 font.letterSpacing: 2
@@ -252,7 +252,7 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     text:           "M"
-                    font.family:    "Poppins"
+                    font.family:    theme.fontBody
                     font.pixelSize: 9
                     font.weight:    Font.SemiBold
                     color:          theme.textMuted
@@ -264,7 +264,7 @@ Item {
                 anchors.leftMargin:     9
                 anchors.verticalCenter: parent.verticalCenter
                 text:           "mateo"
-                font.family:    "Poppins"
+                font.family:    theme.fontBody
                 font.pixelSize: 11
                 color:          theme.textMuted
                 opacity:        root.collapsed ? 0 : 1

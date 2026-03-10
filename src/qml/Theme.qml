@@ -21,6 +21,10 @@ QtObject {
     // Semantic
     readonly property color green: "#4ade80"
 
+    // Typography — centralised font family names
+    readonly property string fontDisplay: "Bebas Neue"
+    readonly property string fontBody:    "Space Grotesk"
+
     // Sidebar dimensions
     readonly property int sidebarExpanded:  220
     readonly property int sidebarCollapsed: 64

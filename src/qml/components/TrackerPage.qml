@@ -60,15 +60,15 @@ Item {
 
                     Text {
                         text: "Tracker"
-                        font.family:      "Rajdhani"
-                        font.weight:      Font.Bold
-                        font.pixelSize:   28
+                        font.family:      theme.fontDisplay
+                        font.weight:      Font.Normal
+                        font.pixelSize:   30
                         font.letterSpacing: 1
                         color: theme.textPrimary
                     }
                     Text {
                         text: "Detect and track players using YOLO + BoxMOT"
-                        font.family:    "Poppins"
+                        font.family:    theme.fontBody
                         font.pixelSize: 11
                         color: theme.textMuted
                     }
@@ -120,7 +120,7 @@ Item {
                                      ? videosManager.activeProjectName + "  ·  " + videosManager.activeVideo
                                      : videosManager.activeVideo)
                                   : "No active video"
-                            font.family:    "Poppins"
+                            font.family:    theme.fontBody
                             font.pixelSize: 12
                             font.weight:    hasActiveVideo ? Font.SemiBold : Font.Normal
                             color: hasActiveVideo ? theme.textPrimary : theme.textMuted
@@ -129,7 +129,7 @@ Item {
                         Text {
                             visible: hasActiveVideo
                             text: activeVideoPath
-                            font.family:    "Poppins"
+                            font.family:    theme.fontBody
                             font.pixelSize: 9
                             color: theme.textMuted
                             elide: Text.ElideLeft
@@ -144,7 +144,7 @@ Item {
                     anchors.rightMargin:    20
                     anchors.verticalCenter: parent.verticalCenter
                     text: "Open a project and activate a video →"
-                    font.family:    "Poppins"
+                    font.family:    theme.fontBody
                     font.pixelSize: 10
                     color: theme.textMuted
                 }
@@ -292,7 +292,7 @@ Item {
 
                     Text {
                         text: "Advanced Settings"
-                        font.family:    "Poppins"
+                        font.family:    theme.fontBody
                         font.pixelSize: 12
                         font.weight:    Font.Medium
                         color: theme.textPrimary
@@ -398,7 +398,7 @@ Item {
                         Text {
                             width: parent.width - pctText.width
                             text: trackerWorker.status || "Initializing…"
-                            font.family:    "Poppins"
+                            font.family:    theme.fontBody
                             font.pixelSize: 11
                             color: theme.textMuted
                             elide: Text.ElideRight
@@ -406,7 +406,7 @@ Item {
                         Text {
                             id: pctText
                             text: trackerWorker.progress + "%"
-                            font.family:    "Poppins"
+                            font.family:    theme.fontBody
                             font.pixelSize: 11
                             font.weight:    Font.SemiBold
                             color: theme.accent
@@ -455,7 +455,7 @@ Item {
                     width: parent.width - 32
                     text: ""
                     wrapMode: Text.WordWrap
-                    font.family:    "Poppins"
+                    font.family:    theme.fontBody
                     font.pixelSize: 11
                     color: "#ff6b6b"
                 }
@@ -488,7 +488,7 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     text: trackerWorker.running ? "Cancel" : "Start Processing"
-                    font.family:    "Poppins"
+                    font.family:    theme.fontBody
                     font.pixelSize: 13
                     font.weight:    Font.SemiBold
                     color: {
@@ -560,7 +560,7 @@ Item {
     // ─────────────────────────────────────────────────────────────────────────
 
     component FieldLabel: Text {
-        font.family:      "Poppins"
+        font.family:      theme.fontBody
         font.pixelSize:   10
         font.weight:      Font.SemiBold
         font.letterSpacing: 0.5
@@ -595,7 +595,7 @@ Item {
             anchors.leftMargin:     12
             anchors.rightMargin:    12
             anchors.verticalCenter: parent.verticalCenter
-            font.family:    "Poppins"
+            font.family:    theme.fontBody
             font.pixelSize: 12
             color:          theme.textPrimary
             selectionColor: Qt.rgba(0, 113/255, 227/255, 0.35)
@@ -642,7 +642,7 @@ Item {
             Text {
                 id: _label
                 width: parent.width - _chevron.implicitWidth - 4
-                font.family:    "Poppins"
+                font.family:    theme.fontBody
                 font.pixelSize: 12
                 color: theme.textPrimary
                 elide: Text.ElideRight
@@ -722,7 +722,7 @@ Item {
                         anchors.leftMargin:     14
                         anchors.verticalCenter: parent.verticalCenter
                         text:           modelData
-                        font.family:    "Poppins"
+                        font.family:    theme.fontBody
                         font.pixelSize: 12
                         color: _dd.current === index
                                ? _dd.theme.accent
