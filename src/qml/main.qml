@@ -1,14 +1,16 @@
 // src/qml/main.qml
 import QtQuick
 import QtQuick.Window
+import QtQuick.Layouts
+import "components"
 
 Window {
     id: root
-    width: 1280
+    width:  1280
     height: 800
-    minimumWidth: 960
+    minimumWidth:  960
     minimumHeight: 600
-    title: "Trocker"
+    title:   "Trocker"
     visible: true
 
     property bool collapsed:   false
@@ -16,10 +18,14 @@ Window {
 
     Theme { id: theme }
 
+    // Eliminate white flash: set colour before anything is drawn
+    color: theme.bg
+
     Rectangle {
         anchors.fill: parent
-        color: theme.bg
+        color:        theme.bg
 
+        // ── Sidebar ───────────────────────────────────────────────────────────
         Sidebar {
             id: sidebar
             anchors.top:    parent.top
@@ -28,41 +34,116 @@ Window {
             theme:          theme
             collapsed:      root.collapsed
             activeIndex:    root.activeIndex
-            onNavSelected:      (i) => root.activeIndex = i
-            onToggleCollapse:   root.collapsed = !root.collapsed
+            onNavSelected:    (i) => root.activeIndex = i
+            onToggleCollapse: root.collapsed = !root.collapsed
         }
 
-        // ── Content placeholder ────────────────────────────────────────────
-        Item {
+        // ── Page stack ────────────────────────────────────────────────────────
+        StackLayout {
             anchors.left:   sidebar.right
             anchors.top:    parent.top
             anchors.right:  parent.right
             anchors.bottom: parent.bottom
+            currentIndex:   root.activeIndex
 
-            Column {
-                anchors.centerIn: parent
-                spacing: 8
+            // 0 — Projects
+            ProjectsPage {
+                theme: theme
+            }
 
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: root.activeIndex === 0 ? "Projects"
-                        : root.activeIndex === 1 ? "Tracker"
-                        : root.activeIndex === 2 ? "Homography"
-                        : root.activeIndex === 3 ? "Reports"
-                        : "Settings"
-                    font.family:      "Rajdhani"
-                    font.weight:      Font.Bold
-                    font.pixelSize:   52
-                    font.letterSpacing: 2
-                    color:            theme.textPrimary
+            // 1 — Tracker (placeholder)
+            Item {
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 8
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text:               "Tracker"
+                        font.family:        "Rajdhani"
+                        font.weight:        Font.Bold
+                        font.pixelSize:     52
+                        font.letterSpacing: 2
+                        color:              theme.textPrimary
+                    }
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text:           "content area"
+                        font.family:    "Poppins"
+                        font.pixelSize: 12
+                        color:          theme.textMuted
+                    }
                 }
+            }
 
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text:           "content area"
-                    font.family:    "Poppins"
-                    font.pixelSize: 12
-                    color:          theme.textMuted
+            // 2 — Homography (placeholder)
+            Item {
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 8
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text:               "Homography"
+                        font.family:        "Rajdhani"
+                        font.weight:        Font.Bold
+                        font.pixelSize:     52
+                        font.letterSpacing: 2
+                        color:              theme.textPrimary
+                    }
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text:           "content area"
+                        font.family:    "Poppins"
+                        font.pixelSize: 12
+                        color:          theme.textMuted
+                    }
+                }
+            }
+
+            // 3 — Reports (placeholder)
+            Item {
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 8
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text:               "Reports"
+                        font.family:        "Rajdhani"
+                        font.weight:        Font.Bold
+                        font.pixelSize:     52
+                        font.letterSpacing: 2
+                        color:              theme.textPrimary
+                    }
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text:           "content area"
+                        font.family:    "Poppins"
+                        font.pixelSize: 12
+                        color:          theme.textMuted
+                    }
+                }
+            }
+
+            // 4 — Settings (placeholder)
+            Item {
+                Column {
+                    anchors.centerIn: parent
+                    spacing: 8
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text:               "Settings"
+                        font.family:        "Rajdhani"
+                        font.weight:        Font.Bold
+                        font.pixelSize:     52
+                        font.letterSpacing: 2
+                        color:              theme.textPrimary
+                    }
+                    Text {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        text:           "content area"
+                        font.family:    "Poppins"
+                        font.pixelSize: 12
+                        color:          theme.textMuted
+                    }
                 }
             }
         }

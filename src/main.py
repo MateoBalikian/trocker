@@ -3,10 +3,13 @@ import os
 from PySide6.QtGui import QGuiApplication, QFontDatabase, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-FONTS_DIR = os.path.join(BASE_DIR, "fonts")
-QML_MAIN = os.path.join(BASE_DIR, "src", "qml", "main.qml")
-ICON_PATH = os.path.join(BASE_DIR, "assets", "trocker.ico")
+from modules.projects_manager import ProjectsManager
+
+BASE_DIR   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FONTS_DIR  = os.path.join(BASE_DIR, "fonts")
+QML_MAIN   = os.path.join(BASE_DIR, "src", "qml", "main.qml")
+ICON_PATH  = os.path.join(BASE_DIR, "assets", "trocker.ico")
+PROJ_DIR   = os.path.join(BASE_DIR, "projects")
 
 app = QGuiApplication(sys.argv)
 
@@ -16,7 +19,10 @@ for font_file in os.listdir(FONTS_DIR):
 
 app.setWindowIcon(QIcon(ICON_PATH))
 
+projects_manager = ProjectsManager(PROJ_DIR)
+
 engine = QQmlApplicationEngine()
+engine.rootContext().setContextProperty("projectsManager", projects_manager)
 engine.load(QML_MAIN)
 
 if not engine.rootObjects():

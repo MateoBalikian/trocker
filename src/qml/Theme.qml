@@ -14,8 +14,9 @@ QtObject {
     readonly property color textPrimary: "#E8E8ED"
     readonly property color textMuted:   "#555560"
 
-    // Accent (único — branco quente)
-    readonly property color accent: "#E8E8ED"
+    // Accent
+    readonly property color accent:      "#0071E3"   // Apple blue
+    readonly property color accentHover: "#0077ED"
 
     // Semantic
     readonly property color green: "#4ade80"
