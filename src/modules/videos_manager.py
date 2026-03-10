@@ -169,3 +169,10 @@ class VideosManager(QObject):
         self._active_video = name
         self.activeVideoChanged.emit()
         self.videosChanged.emit()
+
+    @Slot()
+    def refreshVideos(self):
+        """Force a rescan of the project folder — call after tracker saves a new file."""
+        self._duration_cache.clear()
+        self._thumbnail_cache.clear()
+        self.videosChanged.emit()

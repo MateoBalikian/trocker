@@ -51,28 +51,9 @@ Window {
                 theme: theme
             }
 
-            // 1 — Tracker (placeholder)
-            Item {
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 8
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text:               "Tracker"
-                        font.family:        "Rajdhani"
-                        font.weight:        Font.Bold
-                        font.pixelSize:     52
-                        font.letterSpacing: 2
-                        color:              theme.textPrimary
-                    }
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text:           "content area"
-                        font.family:    "Poppins"
-                        font.pixelSize: 12
-                        color:          theme.textMuted
-                    }
-                }
+            // 1 — Tracker
+            TrackerPage {
+                theme: theme
             }
 
             // 2 — Homography (placeholder)

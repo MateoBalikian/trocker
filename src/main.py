@@ -5,6 +5,7 @@ from PySide6.QtQml import QQmlApplicationEngine
 
 from modules.projects_manager import ProjectsManager
 from modules.videos_manager import VideosManager
+from modules.tracker_worker import TrackerWorker
 
 BASE_DIR   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FONTS_DIR  = os.path.join(BASE_DIR, "fonts")
@@ -22,10 +23,12 @@ app.setWindowIcon(QIcon(ICON_PATH))
 
 projects_manager = ProjectsManager(PROJ_DIR)
 videos_manager   = VideosManager()
+tracker_worker   = TrackerWorker()
 
 engine = QQmlApplicationEngine()
 engine.rootContext().setContextProperty("projectsManager", projects_manager)
 engine.rootContext().setContextProperty("videosManager",   videos_manager)
+engine.rootContext().setContextProperty("trackerWorker",   tracker_worker)
 engine.load(QML_MAIN)
 
 if not engine.rootObjects():
