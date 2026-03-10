@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<title>Trocker — Toggle Comparison</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0D0D10;
+    font-family: system-ui, -apple-system, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 24px;
+    gap: 32px;
+  }
+
+  h1 {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    color: #444;
+    text-transform: uppercase;
+  }
+
+  .row {
+    display: flex;
+    gap: 56px;
+    align-items: flex-start;
+  }
+
+  .variant { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+
+  .tag {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 4px 14px;
+    border-radius: 20px;
+    border: 1px solid #2A2A35;
+    color: #666;
+  }
+
+  /* ── APP SHELL ─────────────────────────── */
+  .app {
+    width: 580px;
+    height: 480px;
+    background: #111114;
+    border-radius: 14px;
+    border: 1px solid #1E1E26;
+    display: flex;
+    overflow: hidden;
+    box-shadow: 0 32px 64px rgba(0,0,0,0.7);
+  }
+
+  /* ── SIDEBAR ───────────────────────────── */
+  .sb {
+    width: 196px;
+    height: 100%;
+    background: #161619;
+    border-right: 1px solid #1E1E26;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .sb-head {
+    padding: 16px 14px 12px;
+    border-bottom: 1px solid #1E1E26;
+  }
+
+  .logo-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .lm {
+    width: 26px; height: 26px; border-radius: 6px;
+    background: #E8E8ED;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800; color: #111;
+    flex-shrink: 0;
+  }
+
+  .ln {
+    font-size: 15px; font-weight: 700; letter-spacing: 3px; color: #E8E8ED;
+    font-family: system-ui;
+  }
+
+  .proj {
+    display: flex; align-items: center; gap: 7px;
+    background: #1C1C22; border: 1px solid #26262F;
+    border-radius: 7px; padding: 5px 9px; cursor: pointer;
+  }
+
+  .proj-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; flex-shrink:0; }
+  .proj-name { font-size: 10px; font-weight: 500; color: #ADADB8; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .proj-chev { font-size: 8px; color: #444; }
+
+  .nav { padding: 12px 8px; flex: 1; }
+
+  .sec { font-size: 8px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #3A3A46; padding: 0 8px; margin-bottom: 6px; }
+
+  .ni {
+    display: flex; align-items: center; gap: 9px;
+    padding: 0 9px; height: 34px; border-radius: 7px;
+    margin-bottom: 2px; cursor: pointer;
+    position: relative;
+  }
+
+  .ni:hover { background: #1C1C24; }
+
+  .ni.on { background: #1C1C24; }
+
+  .ni.on::before {
+    content: '';
+    position: absolute; left: 0;
+    width: 2px; height: 16px;
+    background: #E8E8ED;
+    border-radius: 0 2px 2px 0;
+  }
+
+  .ic { font-size: 13px; color: #3A3A50; width:16px; text-align:center; flex-shrink:0; }
+  .ni.on .ic { color: #E8E8ED; }
+  .nl { font-size: 11px; font-weight: 400; color: #555; }
+  .ni.on .nl { font-weight: 600; color: #E8E8ED; }
+
+  /* ── BOTTOM ZONES ──────────────────────── */
+
+  /* OPTION A — toggle visível na sidebar */
+  .bot-a {
+    border-top: 1px solid #1E1E26;
+    padding: 10px 8px;
+    background: #161619;
+  }
+
+  .tog-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 9px; height: 34px; border-radius: 7px;
+    cursor: pointer;
+  }
+  .tog-row:hover { background: #1C1C24; }
+
+  .tog-ic { font-size: 13px; color: #444; }
+  .tog-lbl { font-size: 11px; color: #555; flex:1; }
+
+  .sw {
+    width: 30px; height: 17px; border-radius: 9px;
+    background: #252530; border: 1px solid #303040;
+    position: relative; flex-shrink: 0;
+  }
+  .sw-k {
+    width: 11px; height: 11px; border-radius: 50%;
+    background: #E8E8ED;
+    position: absolute; top: 2px; left: 15px;
+  }
+
+  /* OPTION B — sem toggle, área mais clean */
+  .bot-b {
+    border-top: 1px solid #1E1E26;
+    padding: 10px 8px;
+    background: #161619;
+  }
+
+  .usr-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 9px; height: 34px; border-radius: 7px;
+    cursor: pointer;
+  }
+  .usr-row:hover { background: #1C1C24; }
+
+  .av {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #252530; border: 1px solid #303040;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px; font-weight: 700; color: #666;
+    flex-shrink: 0;
+  }
+
+  .usr-name { font-size: 11px; color: #444; flex:1; }
+  .usr-dots { font-size: 14px; color: #333; }
+
+  /* ── CONTENT ───────────────────────────── */
+  .ct {
+    flex: 1;
+    background: #111114;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 6px; position: relative;
+  }
+
+  .ct-title { font-size: 28px; font-weight: 800; letter-spacing: 2px; color: #1E1E26; }
+  .ct-sub { font-size: 10px; color: #252530; }
+
+  /* Settings page hint para opção B */
+  .settings-panel {
+    position: absolute;
+    bottom: 20px; right: 20px;
+    background: #161619;
+    border: 1px solid #1E1E26;
+    border-radius: 10px;
+    padding: 14px;
+    width: 200px;
+  }
+
+  .sp-title { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #3A3A50; margin-bottom: 10px; }
+
+  .sp-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 0;
+    border-top: 1px solid #1E1E26;
+  }
+
+  .sp-lbl { font-size: 11px; color: #666; flex: 1; }
+
+  .sp-sw {
+    width: 30px; height: 17px; border-radius: 9px;
+    background: #252530; border: 1px solid #303040;
+    position: relative;
+  }
+  .sp-sw-k {
+    width: 11px; height: 11px; border-radius: 50%;
+    background: #E8E8ED;
+    position: absolute; top: 2px; left: 15px;
+  }
+
+  /* ── CALLOUT ANNOTATIONS ──────────────── */
+  .callout {
+    display: flex; align-items: flex-start; gap: 8px;
+    background: #161619;
+    border: 1px solid #1E1E26;
+    border-radius: 8px;
+    padding: 10px 14px;
+    max-width: 340px;
+  }
+
+  .call-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .call-text { font-size: 11px; color: #666; line-height: 1.6; }
+  .call-text strong { color: #ADADB8; font-weight: 600; }
+
+  /* highlight box */
+  .hl-a {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 56px;
+    border: 2px solid rgba(232,232,237,0.15);
+    border-radius: 0 0 0 13px;
+    pointer-events: none;
+  }
+
+  .hl-b {
+    position: absolute;
+    bottom: 16px; right: 16px;
+    width: 204px; height: 110px;
+    border: 2px solid rgba(232,232,237,0.12);
+    border-radius: 11px;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<h1>Trocker · Where does the theme toggle live?</h1>
+
+<div class="row">
+
+  <!-- ══ OPÇÃO A ══ -->
+  <div class="variant">
+    <div class="tag">Opção A — Toggle na Sidebar</div>
+
+    <div class="app">
+      <div class="sb">
+        <div class="sb-head">
+          <div class="logo-row">
+            <div class="lm">T</div>
+            <div class="ln">TROCKER</div>
+          </div>
+          <div class="proj">
+            <div class="proj-dot"></div>
+            <div class="proj-name">Flamengo vs Palmeiras</div>
+            <div class="proj-chev">⌄</div>
+          </div>
+        </div>
+        <div class="nav">
+          <div class="sec">Menu</div>
+          <div class="ni on"><div class="ic">⊞</div><div class="nl">Projects</div></div>
+          <div class="ni"><div class="ic">◎</div><div class="nl">Tracker</div></div>
+          <div class="ni"><div class="ic">⌗</div><div class="nl">Homography</div></div>
+          <div class="ni"><div class="ic">▤</div><div class="nl">Reports</div></div>
+          <div class="ni"><div class="ic">⚙</div><div class="nl">Settings</div></div>
+        </div>
+
+        <!-- DIFERENÇA A: toggle aqui -->
+        <div class="bot-a" style="position:relative;">
+          <div class="hl-a"></div>
+          <div class="tog-row">
+            <div class="tog-ic">◑</div>
+            <div class="tog-lbl">Dark Mode</div>
+            <div class="sw"><div class="sw-k"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ct">
+        <div class="ct-title">PROJECTS</div>
+        <div class="ct-sub">content area</div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <div class="call-icon">↙</div>
+      <div class="call-text">
+        <strong>Toggle no rodapé da sidebar.</strong><br>
+        Acesso sempre visível com 1 clique. Ocupa uma linha permanente na sidebar.
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ OPÇÃO B ══ -->
+  <div class="variant">
+    <div class="tag">Opção B — Toggle nos Settings</div>
+
+    <div class="app">
+      <div class="sb">
+        <div class="sb-head">
+          <div class="logo-row">
+            <div class="lm">T</div>
+            <div class="ln">TROCKER</div>
+          </div>
+          <div class="proj">
+            <div class="proj-dot"></div>
+            <div class="proj-name">Flamengo vs Palmeiras</div>
+            <div class="proj-chev">⌄</div>
+          </div>
+        </div>
+        <div class="nav">
+          <div class="sec">Menu</div>
+          <div class="ni on"><div class="ic">⊞</div><div class="nl">Projects</div></div>
+          <div class="ni"><div class="ic">◎</div><div class="nl">Tracker</div></div>
+          <div class="ni"><div class="ic">⌗</div><div class="nl">Homography</div></div>
+          <div class="ni"><div class="ic">▤</div><div class="nl">Reports</div></div>
+          <div class="ni"><div class="ic">⚙</div><div class="nl">Settings</div></div>
+        </div>
+
+        <!-- DIFERENÇA B: sem toggle, só avatar -->
+        <div class="bot-b">
+          <div class="usr-row">
+            <div class="av">M</div>
+            <div class="usr-name">mateo</div>
+            <div class="usr-dots">···</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ct" style="position:relative;">
+        <div class="ct-title">PROJECTS</div>
+        <div class="ct-sub">content area</div>
+
+        <!-- settings hint no content -->
+        <div class="settings-panel">
+          <div class="sp-title">Settings → Appearance</div>
+          <div class="sp-row">
+            <div class="sp-lbl">Dark Mode</div>
+            <div class="sp-sw"><div class="sp-sw-k"></div></div>
+          </div>
+          <div class="sp-row">
+            <div class="sp-lbl">Compact View</div>
+            <div class="sp-sw"><div class="sp-sw-k" style="left:2px; background:#3A3A50;"></div></div>
+          </div>
+        </div>
+        <div class="hl-b"></div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <div class="call-icon">↘</div>
+      <div class="call-text">
+        <strong>Toggle fica em Settings → Appearance.</strong><br>
+        Sidebar mais limpa. Avatar do usuário ocupa o rodapé. Toggle fica com outras preferências.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="font-size:9px; color:#2A2A35; letter-spacing:2px; text-transform:uppercase; margin-top:8px;">
+  Trocker Design System · Visual Mockup
+</div>
+
+</body>
+</html>
