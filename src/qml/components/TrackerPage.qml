@@ -61,8 +61,8 @@ Item {
                     Text {
                         text: "Tracker"
                         font.family:      theme.fontDisplay
-                        font.weight:      Font.Normal
-                        font.pixelSize:   30
+                        font.weight:      Font.Bold
+                        font.pixelSize:   34
                         font.letterSpacing: 1
                         color: theme.textPrimary
                     }
@@ -83,7 +83,7 @@ Item {
                 radius: 12
                 color: theme.surface
                 border.color: hasActiveVideo
-                              ? Qt.rgba(0, 113/255, 227/255, 0.30)
+                              ? Qt.rgba(66/255, 130/255, 255/255, 0.45)
                               : theme.border
                 border.width: 1
 
@@ -561,10 +561,10 @@ Item {
 
     component FieldLabel: Text {
         font.family:      theme.fontBody
-        font.pixelSize:   10
-        font.weight:      Font.SemiBold
-        font.letterSpacing: 0.5
-        color: theme.textMuted
+        font.pixelSize:   11
+        font.weight:      Font.Medium
+        font.letterSpacing: 0.3
+        color: theme.textSecondary
         topPadding: 4
         bottomPadding: 0
     }
@@ -578,10 +578,10 @@ Item {
         height: 38
         radius: 9
         color:  _input.activeFocus
-                ? Qt.rgba(0, 113/255, 227/255, 0.08)
+                ? Qt.rgba(66/255, 130/255, 255/255, 0.10)
                 : theme.surface2
         border.color: _input.activeFocus
-                      ? Qt.rgba(0, 113/255, 227/255, 0.45)
+                      ? Qt.rgba(66/255, 130/255, 255/255, 0.50)
                       : theme.border
         border.width: 1
 
@@ -598,7 +598,7 @@ Item {
             font.family:    theme.fontBody
             font.pixelSize: 12
             color:          theme.textPrimary
-            selectionColor: Qt.rgba(0, 113/255, 227/255, 0.35)
+            selectionColor: Qt.rgba(66/255, 130/255, 255/255, 0.35)
 
             Text {
                 anchors.fill: parent
@@ -621,7 +621,7 @@ Item {
         radius: 9
         color:  _ddMouse.containsMouse ? theme.surface2 : theme.surface
         border.color: _popup.visible
-                      ? Qt.rgba(0, 113/255, 227/255, 0.45)
+                      ? Qt.rgba(66/255, 130/255, 255/255, 0.50)
                       : theme.border
         border.width: 1
 
@@ -694,7 +694,7 @@ Item {
             height:  _dd.model ? Math.min(_dd.model.length * 36, 216) : 0
             radius:  9
             color:   _dd.theme.surface2
-            border.color: Qt.rgba(0, 113/255, 227/255, 0.40)
+            border.color: Qt.rgba(66/255, 130/255, 255/255, 0.45)
             border.width: 1
             clip:    true
 

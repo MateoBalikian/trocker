@@ -22,11 +22,11 @@ Item {
 
     // Accent palette — same as ProjectsPage
     readonly property var accentPalette: [
-        "#0071E3",
-        "#30D158",
-        "#FF9F0A",
+        "#4282FF",
+        "#2DD480",
+        "#FF9830",
         "#BF5AF2",
-        "#FF375F",
+        "#FF4560",
     ]
     function accentFor(i) { return accentPalette[i % accentPalette.length] }
 
@@ -115,8 +115,8 @@ Item {
             Text {
                 text:               root.projectName
                 font.family:        theme.fontDisplay
-                font.weight:        Font.Normal
-                font.pixelSize:     28
+                font.weight:        Font.Bold
+                font.pixelSize:     30
                 font.letterSpacing: 0.5
                 color:              theme.textPrimary
                 anchors.verticalCenter: parent.verticalCenter
@@ -131,7 +131,7 @@ Item {
             width:  addBtnRow.implicitWidth + 24
             height: 34
             radius: 8
-            color:  addBtnHov ? Qt.darker("#0071E3", 1.12) : "#0071E3"
+            color:  addBtnHov ? theme.accentHover : theme.accent
             Behavior on color { ColorAnimation { duration: 150 } }
 
             property bool addBtnHov: false
@@ -221,8 +221,8 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             text:               "No videos yet"
             font.family:        theme.fontDisplay
-            font.weight:        Font.Normal
-            font.pixelSize:     24
+            font.weight:        Font.Bold
+            font.pixelSize:     28
             color:              theme.textPrimary
         }
 
@@ -237,7 +237,7 @@ Item {
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             width:  150; height: 36; radius: 8
-            color:  emptyAddHov ? Qt.darker("#0071E3", 1.12) : "#0071E3"
+            color:  emptyAddHov ? theme.accentHover : theme.accent
             Behavior on color { ColorAnimation { duration: 150 } }
 
             property bool emptyAddHov: false
@@ -299,12 +299,12 @@ Item {
                     property string accent:   root.accentFor(index)
 
                     color: isActive
-                           ? Qt.rgba(0, 113/255, 227/255, 0.07)
+                           ? Qt.rgba(66/255, 130/255, 255/255, 0.08)
                            : (cardHov ? theme.surface2 : theme.surface)
 
                     border.color: isActive
-                                  ? Qt.rgba(0, 113/255, 227/255, 0.40)
-                                  : (cardHov ? Qt.rgba(0, 113/255, 227/255, 0.22)
+                                  ? Qt.rgba(66/255, 130/255, 255/255, 0.50)
+                                  : (cardHov ? Qt.rgba(66/255, 130/255, 255/255, 0.25)
                                              : theme.border)
                     border.width: isActive ? 1 : 1
 
@@ -318,11 +318,11 @@ Item {
                         anchors.left:         parent.left
                         anchors.top:          parent.top
                         anchors.bottom:       parent.bottom
-                        anchors.topMargin:    3
-                        anchors.bottomMargin: 3
-                        width:  3
+                        anchors.topMargin:    4
+                        anchors.bottomMargin: 4
+                        width:  4
                         radius: 2
-                        color:  card.isActive ? "#0071E3" : card.accent
+                        color:  card.isActive ? theme.accent : card.accent
                     }
 
                     // Thumbnail area
@@ -367,8 +367,8 @@ Item {
                         anchors.topMargin:   3
                         text:            card.vid ? card.vid.name : ""
                         font.family:     theme.fontDisplay
-                        font.weight:     Font.Normal
-                        font.pixelSize:  17
+                        font.weight:     Font.Bold
+                        font.pixelSize:  18
                         color:           theme.textPrimary
                         elide:           Text.ElideRight
                     }
@@ -394,7 +394,7 @@ Item {
                         width:  activeLbl.implicitWidth + 14
                         height: 16
                         radius: 8
-                        color:  Qt.rgba(0, 113/255, 227/255, 0.16)
+                        color:  Qt.rgba(66/255, 130/255, 255/255, 0.16)
 
                         Text {
                             id:              activeLbl
@@ -402,8 +402,8 @@ Item {
                             text:            "● Active"
                             font.family:     theme.fontBody
                             font.pixelSize:  9
-                            font.weight:     Font.Medium
-                            color:           "#0071E3"
+                            font.weight:     Font.SemiBold
+                            color:           theme.accentLight
                         }
                     }
 
@@ -421,10 +421,8 @@ Item {
                         Rectangle {
                             visible:      !card.isActive
                             width:  72; height: 22; radius: 6
-                            color:        setActHov ? "#0071E3"
-                                                    : Qt.rgba(0, 113/255, 227/255, 0.10)
-                            border.color: setActHov ? "#0071E3"
-                                                    : Qt.rgba(0, 113/255, 227/255, 0.28)
+                            color:        setActHov ? theme.accent : theme.accentBg
+                            border.color: setActHov ? theme.accent : Qt.rgba(66/255, 130/255, 255/255, 0.30)
                             border.width: 1
                             Behavior on color        { ColorAnimation { duration: 110 } }
                             Behavior on border.color { ColorAnimation { duration: 110 } }
@@ -437,7 +435,7 @@ Item {
                                 font.family:    theme.fontBody
                                 font.pixelSize: 8
                                 font.weight:    Font.Medium
-                                color:          parent.setActHov ? "white" : "#0071E3"
+                                color:          parent.setActHov ? "white" : theme.accentLight
                                 Behavior on color { ColorAnimation { duration: 110 } }
                             }
 
@@ -508,7 +506,7 @@ Item {
                                 font.family:    theme.fontBody
                                 font.pixelSize: 8
                                 font.weight:    Font.Medium
-                                color:          parent.delHov ? "#FF375F" : theme.textMuted
+                                color:          parent.delHov ? theme.red : theme.textMuted
                                 Behavior on color { ColorAnimation { duration: 110 } }
                             }
 
@@ -570,7 +568,7 @@ Item {
                 height: 36
                 radius: 8
                 color:  theme.surface
-                border.color: vidRenameField.activeFocus ? "#0071E3" : theme.border
+                border.color: vidRenameField.activeFocus ? theme.accent : theme.border
                 border.width: 1
                 Behavior on border.color { ColorAnimation { duration: 150 } }
 
@@ -618,7 +616,7 @@ Item {
 
                 Rectangle {
                     width: 72; height: 32; radius: 7
-                    color: vrSaveHov ? Qt.darker("#0071E3", 1.12) : "#0071E3"
+                    color: vrSaveHov ? theme.accentHover : theme.accent
                     Behavior on color { ColorAnimation { duration: 120 } }
                     property bool vrSaveHov: false
 
@@ -724,7 +722,7 @@ Item {
 
                 Rectangle {
                     width: 72; height: 32; radius: 7
-                    color: vdConfirmHov ? Qt.darker("#FF375F", 1.1) : "#FF375F"
+                    color: vdConfirmHov ? Qt.darker(theme.red, 1.1) : theme.red
                     Behavior on color { ColorAnimation { duration: 120 } }
                     property bool vdConfirmHov: false
 

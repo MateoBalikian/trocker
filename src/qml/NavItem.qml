@@ -16,68 +16,72 @@ Item {
 
     // ── Dimensions ─────────────────────────────────────────────────────────
     width:  parent ? parent.width : 0
-    height: 36
+    height: 42
 
-    // ── State ──────────────────────────────────────────────────────────────
     property bool hovered: false
 
-    // ── Hover pill ─────────────────────────────────────────────────────────
+    // ── Background pill ────────────────────────────────────────────────────
     Rectangle {
         anchors.left:           parent.left
         anchors.right:          parent.right
         anchors.leftMargin:     8
         anchors.rightMargin:    8
         anchors.verticalCenter: parent.verticalCenter
-        height: 30
-        radius: 7
-        color: root.active  ? Qt.rgba(theme.textPrimary.r, theme.textPrimary.g, theme.textPrimary.b, 0.07)
-             : root.hovered ? Qt.rgba(theme.textPrimary.r, theme.textPrimary.g, theme.textPrimary.b, 0.04)
+        height: 36
+        radius: 8
+        color: root.active  ? theme.accentBg
+             : root.hovered ? Qt.rgba(theme.textPrimary.r, theme.textPrimary.g, theme.textPrimary.b, 0.05)
              : "transparent"
         Behavior on color { ColorAnimation { duration: 150; easing.type: Easing.OutCubic } }
-    }
 
-    // ── Active left bar ────────────────────────────────────────────────────
-    Rectangle {
-        anchors.left:           parent.left
-        anchors.verticalCenter: parent.verticalCenter
-        width:  2
-        height: root.active ? 18 : 0
-        radius: 1
-        color:  theme.textPrimary
-        Behavior on height { NumberAnimation { duration: 200; easing.type: Easing.OutBack } }
+        // Active left accent bar (inside pill, on left edge)
+        Rectangle {
+            visible: root.active
+            anchors.left:           parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            width:  3
+            height: root.active ? 22 : 0
+            radius: 2
+            color:  theme.accent
+            Behavior on height { NumberAnimation { duration: 200; easing.type: Easing.OutBack } }
+        }
     }
 
     // ── Icon ───────────────────────────────────────────────────────────────
     Text {
         id: iconText
-        anchors.left:        parent.left
-        anchors.leftMargin:  root.collapsed ? 0 : 18
+        anchors.left:           parent.left
+        anchors.leftMargin:     root.collapsed ? 0 : 22
         anchors.verticalCenter: parent.verticalCenter
-        width:               root.collapsed ? parent.width : implicitWidth
-        horizontalAlignment: root.collapsed ? Text.AlignHCenter : Text.AlignLeft
+        width:                  root.collapsed ? parent.width : implicitWidth
+        horizontalAlignment:    root.collapsed ? Text.AlignHCenter : Text.AlignLeft
         text:           root.icon
-        font.pixelSize: 14
-        color: root.active ? theme.textPrimary : theme.textMuted
+        font.pixelSize: 15
+        color: root.active ? theme.accent
+             : root.hovered ? theme.textSecondary
+             : theme.textMuted
         Behavior on color { ColorAnimation { duration: 150 } }
     }
 
-    // ── Label (hidden when collapsed) ──────────────────────────────────────
+    // ── Label ──────────────────────────────────────────────────────────────
     Text {
         anchors.left:           iconText.right
         anchors.leftMargin:     10
         anchors.verticalCenter: parent.verticalCenter
         text:           root.label
         font.family:    root.theme.fontBody
-        font.pixelSize: 12
+        font.pixelSize: 13
         font.weight:    root.active ? Font.DemiBold : Font.Normal
-        color: root.active ? theme.textPrimary : theme.textMuted
+        color: root.active  ? theme.accentLight
+             : root.hovered ? theme.textSecondary
+             : theme.textMuted
         opacity: root.collapsed ? 0 : 1
         visible: opacity > 0
-        Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-        Behavior on color   { ColorAnimation  { duration: 150 } }
+        Behavior on opacity { NumberAnimation  { duration: 200; easing.type: Easing.OutCubic } }
+        Behavior on color   { ColorAnimation   { duration: 150 } }
     }
 
-    // ── Tooltip (só quando collapsed) ─────────────────────────────────────
+    // ── Tooltip when collapsed ─────────────────────────────────────────────
     ToolTip {
         visible: root.collapsed && root.hovered
         text:    root.label

@@ -10,11 +10,11 @@ Item {
 
     // Accent palette — cycles per card index
     readonly property var accentPalette: [
-        "#0071E3",  // blue
-        "#30D158",  // green
-        "#FF9F0A",  // orange
+        "#4282FF",  // blue
+        "#2DD480",  // green
+        "#FF9830",  // orange
         "#BF5AF2",  // purple
-        "#FF375F",  // red
+        "#FF4560",  // red
     ]
 
     function accentFor(i) { return accentPalette[i % accentPalette.length] }
@@ -40,8 +40,8 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text:               "Projects"
             font.family:        theme.fontDisplay
-            font.weight:        Font.Normal
-            font.pixelSize:     32
+            font.weight:        Font.Bold
+            font.pixelSize:     34
             font.letterSpacing: 1
             color:              theme.textPrimary
         }
@@ -54,7 +54,7 @@ Item {
             width:  newBtnRow.implicitWidth + 24
             height: 34
             radius: 8
-            color:  newBtnHov ? Qt.darker("#0071E3", 1.12) : "#0071E3"
+            color:  newBtnHov ? theme.accentHover : theme.accent
             Behavior on color { ColorAnimation { duration: 150 } }
 
             property bool newBtnHov: false
@@ -134,8 +134,8 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             text:               "No projects yet"
             font.family:        theme.fontDisplay
-            font.weight:        Font.Normal
-            font.pixelSize:     26
+            font.weight:        Font.Bold
+            font.pixelSize:     28
             color:              theme.textPrimary
         }
 
@@ -150,7 +150,7 @@ Item {
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             width:  160; height: 36; radius: 8
-            color:  emptyBtnHov ? Qt.darker("#0071E3", 1.12) : "#0071E3"
+            color:  emptyBtnHov ? theme.accentHover : theme.accent
             Behavior on color { ColorAnimation { duration: 150 } }
 
             property bool emptyBtnHov: false
@@ -205,11 +205,11 @@ Item {
                     id: card
 
                     width:  cardsFlow.cardW
-                    height: 120
-                    radius: 10
+                    height: 148
+                    radius: 12
                     color:        cardHov ? theme.surface2 : theme.surface
                     border.color: cardHov
-                                  ? Qt.rgba(0, 113/255, 227/255, 0.35)
+                                  ? Qt.rgba(66/255, 130/255, 255/255, 0.40)
                                   : theme.border
                     border.width: 1
                     Behavior on color        { ColorAnimation { duration: 150 } }
@@ -227,9 +227,9 @@ Item {
                         anchors.left:         parent.left
                         anchors.top:          parent.top
                         anchors.bottom:       parent.bottom
-                        anchors.topMargin:    3
-                        anchors.bottomMargin: 3
-                        width:  3
+                        anchors.topMargin:    4
+                        anchors.bottomMargin: 4
+                        width:  4
                         radius: 2
                         color:  card.accent
                     }
@@ -238,64 +238,49 @@ Item {
                     Rectangle {
                         id: initCircle
                         anchors.left:       parent.left
-                        anchors.leftMargin: 20
+                        anchors.leftMargin: 22
                         anchors.top:        parent.top
-                        anchors.topMargin:  18
-                        width: 36; height: 36; radius: 10
+                        anchors.topMargin:  22
+                        width: 40; height: 40; radius: 10
                         color: Qt.rgba(
                             Qt.color(card.accent).r,
                             Qt.color(card.accent).g,
                             Qt.color(card.accent).b,
-                            0.14
+                            0.16
                         )
 
                         Text {
                             anchors.centerIn: parent
                             text:           card.proj ? card.proj.name.charAt(0).toUpperCase() : ""
                             font.family:    theme.fontDisplay
-                            font.weight:    Font.Normal
-                            font.pixelSize: 18
+                            font.weight:    Font.Bold
+                            font.pixelSize: 20
                             color:          card.accent
                         }
                     }
 
                     // ── Project name ──────────────────────────────────────────
                     Text {
+                        id: cardTitle
                         anchors.left:           initCircle.right
                         anchors.leftMargin:     12
                         anchors.right:          parent.right
                         anchors.rightMargin:    16
-                        anchors.verticalCenter: initCircle.verticalCenter
+                        anchors.top:            initCircle.top
                         text:            card.proj ? card.proj.name : ""
                         font.family:     theme.fontDisplay
-                        font.weight:     Font.Normal
-                        font.pixelSize:  19
+                        font.weight:     Font.Bold
+                        font.pixelSize:  20
                         color:           theme.textPrimary
                         elide:           Text.ElideRight
                     }
 
-                    // ── Bottom metadata ───────────────────────────────────────
+                    // ── Video count chip (below name) ─────────────────────────
                     Row {
-                        anchors.left:         parent.left
-                        anchors.leftMargin:   20
-                        anchors.bottom:       parent.bottom
-                        anchors.bottomMargin: 14
-                        spacing: 8
-                        visible: !card.cardHov
-
-                        Text {
-                            text:           card.proj ? card.proj.date : ""
-                            font.family:    theme.fontBody
-                            font.pixelSize: 10
-                            color:          theme.textMuted
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
-
-                        Rectangle {
-                            width: 3; height: 3; radius: 1.5
-                            color: theme.textMuted
-                            anchors.verticalCenter: parent.verticalCenter
-                        }
+                        anchors.left:    cardTitle.left
+                        anchors.top:     cardTitle.bottom
+                        anchors.topMargin: 5
+                        spacing: 6
 
                         Text {
                             text: {
@@ -303,6 +288,24 @@ Item {
                                 var n = card.proj.videoCount
                                 return n + " video" + (n === 1 ? "" : "s")
                             }
+                            font.family:    theme.fontBody
+                            font.pixelSize: 11
+                            color:          theme.textMuted
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
+
+                    // ── Bottom metadata ───────────────────────────────────────
+                    Row {
+                        anchors.left:         parent.left
+                        anchors.leftMargin:   22
+                        anchors.bottom:       parent.bottom
+                        anchors.bottomMargin: 16
+                        spacing: 7
+                        visible: !card.cardHov
+
+                        Text {
+                            text:           card.proj ? card.proj.date : ""
                             font.family:    theme.fontBody
                             font.pixelSize: 10
                             color:          theme.textMuted
@@ -322,9 +325,9 @@ Item {
 
                         // Open
                         Rectangle {
-                            width: 50; height: 24; radius: 6
-                            color: openHov ? "#0071E3" : Qt.rgba(0, 113/255, 227/255, 0.12)
-                            border.color: openHov ? "#0071E3" : Qt.rgba(0, 113/255, 227/255, 0.3)
+                            width: 54; height: 26; radius: 7
+                            color: openHov ? theme.accent : theme.accentBg
+                            border.color: openHov ? theme.accent : Qt.rgba(66/255, 130/255, 255/255, 0.35)
                             border.width: 1
                             Behavior on color        { ColorAnimation { duration: 110 } }
                             Behavior on border.color { ColorAnimation { duration: 110 } }
@@ -335,9 +338,9 @@ Item {
                                 anchors.centerIn: parent
                                 text:           "Open"
                                 font.family:    theme.fontBody
-                                font.pixelSize: 9
+                                font.pixelSize: 10
                                 font.weight:    Font.Medium
-                                color:          parent.openHov ? "white" : "#0071E3"
+                                color:          parent.openHov ? "white" : theme.accentLight
                                 Behavior on color { ColorAnimation { duration: 110 } }
                             }
 
@@ -362,7 +365,7 @@ Item {
 
                         // Rename
                         Rectangle {
-                            width: 62; height: 24; radius: 6
+                            width: 62; height: 26; radius: 7
                             color: renHov
                                    ? Qt.rgba(theme.textPrimary.r, theme.textPrimary.g, theme.textPrimary.b, 0.08)
                                    : Qt.rgba(theme.textPrimary.r, theme.textPrimary.g, theme.textPrimary.b, 0.04)
@@ -397,7 +400,7 @@ Item {
 
                         // Delete
                         Rectangle {
-                            width: 52; height: 24; radius: 6
+                            width: 54; height: 26; radius: 7
                             color:        delHov ? Qt.rgba(1, 0.22, 0.37, 0.15)
                                                  : Qt.rgba(theme.textPrimary.r, theme.textPrimary.g, theme.textPrimary.b, 0.04)
                             border.color: delHov ? Qt.rgba(1, 0.22, 0.37, 0.45) : theme.border
@@ -413,7 +416,7 @@ Item {
                                 font.family:    theme.fontBody
                                 font.pixelSize: 9
                                 font.weight:    Font.Medium
-                                color:          parent.delHov ? "#FF375F" : theme.textMuted
+                                color:          parent.delHov ? theme.red : theme.textMuted
                                 Behavior on color { ColorAnimation { duration: 110 } }
                             }
 
@@ -481,7 +484,7 @@ Item {
                 height: 36
                 radius: 8
                 color:  theme.surface
-                border.color: nameField.activeFocus ? "#0071E3" : theme.border
+                border.color: nameField.activeFocus ? theme.accent : theme.border
                 border.width: 1
                 Behavior on border.color { ColorAnimation { duration: 150 } }
 
@@ -531,7 +534,7 @@ Item {
 
                 Rectangle {
                     width: 72; height: 32; radius: 7
-                    color: createHov ? Qt.darker("#0071E3", 1.12) : "#0071E3"
+                    color: createHov ? theme.accentHover : theme.accent
                     Behavior on color { ColorAnimation { duration: 120 } }
                     property bool createHov: false
 
@@ -603,7 +606,7 @@ Item {
                 height: 36
                 radius: 8
                 color:  theme.surface
-                border.color: renameField.activeFocus ? "#0071E3" : theme.border
+                border.color: renameField.activeFocus ? theme.accent : theme.border
                 border.width: 1
                 Behavior on border.color { ColorAnimation { duration: 150 } }
 
@@ -651,7 +654,7 @@ Item {
 
                 Rectangle {
                     width: 72; height: 32; radius: 7
-                    color: saveHov ? Qt.darker("#0071E3", 1.12) : "#0071E3"
+                    color: saveHov ? theme.accentHover : theme.accent
                     Behavior on color { ColorAnimation { duration: 120 } }
                     property bool saveHov: false
 
@@ -758,7 +761,7 @@ Item {
 
                 Rectangle {
                     width: 72; height: 32; radius: 7
-                    color: delConfirmHov ? Qt.darker("#FF375F", 1.1) : "#FF375F"
+                    color: delConfirmHov ? Qt.darker(theme.red, 1.1) : theme.red
                     Behavior on color { ColorAnimation { duration: 120 } }
                     property bool delConfirmHov: false
 

@@ -53,11 +53,11 @@ Item {
             // Logo mark — centralizes when collapsed
             Rectangle {
                 id: logoMark
-                width: 26; height: 26; radius: 6
-                color: theme.textPrimary
+                width: 28; height: 28; radius: 7
+                color: theme.accent
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.left:              root.collapsed ? undefined : parent.left
-                anchors.leftMargin:        root.collapsed ? 0 : 14
+                anchors.leftMargin:        root.collapsed ? 0 : 16
                 anchors.horizontalCenter:  root.collapsed ? parent.horizontalCenter : undefined
 
                 Text {
@@ -65,20 +65,20 @@ Item {
                     text:           "T"
                     font.family:    theme.fontDisplay
                     font.weight:    Font.Bold
-                    font.pixelSize: 14
-                    color:          theme.bg
+                    font.pixelSize: 16
+                    color:          "white"
                 }
             }
 
             // Wordmark
             Text {
                 anchors.left:           logoMark.right
-                anchors.leftMargin:     8
+                anchors.leftMargin:     10
                 anchors.verticalCenter: parent.verticalCenter
                 text:             "TROCKER"
                 font.family:      theme.fontDisplay
-                font.weight:      Font.Normal
-                font.pixelSize:   18
+                font.weight:      Font.Bold
+                font.pixelSize:   17
                 font.letterSpacing: 3
                 color:            theme.textPrimary
                 opacity:          root.collapsed ? 0 : 1
@@ -98,7 +98,7 @@ Item {
                 radius: 7
                 color:  theme.surface2
                 border.color: hasActiveVideo
-                              ? Qt.rgba(0, 113/255, 227/255, 0.30)
+                              ? Qt.rgba(66/255, 130/255, 255/255, 0.40)
                               : theme.border
                 border.width: 1
                 opacity: root.collapsed ? 0 : 1
@@ -155,7 +155,7 @@ Item {
                         text:           activeBadge.badgeText
                         font.family:    theme.fontBody
                         font.pixelSize: 10
-                        font.weight:    activeBadge.hasActiveVideo ? Font.SemiBold : Font.Medium
+                        font.weight:    activeBadge.hasActiveVideo ? Font.SemiBold : Font.Normal
                         color:          activeBadge.hasActiveVideo ? theme.textPrimary : theme.textMuted
                         elide:          Text.ElideRight
                         anchors.verticalCenter: parent.verticalCenter
@@ -212,7 +212,7 @@ Item {
                     active:    index === root.activeIndex
                     collapsed: root.collapsed
                     width:     navCol.width
-                    height:    38
+                    height:    42
                     onClicked: root.navSelected(index)
                 }
             }
@@ -240,9 +240,9 @@ Item {
             // Avatar
             Rectangle {
                 id: avatar
-                width: 24; height: 24; radius: 12
-                color: theme.surface2
-                border.color: theme.border
+                width: 26; height: 26; radius: 13
+                color: theme.surface3
+                border.color: theme.borderHover
                 border.width: 1
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.left:             root.collapsed ? undefined : parent.left
@@ -253,9 +253,9 @@ Item {
                     anchors.centerIn: parent
                     text:           "M"
                     font.family:    theme.fontBody
-                    font.pixelSize: 9
+                    font.pixelSize: 10
                     font.weight:    Font.SemiBold
-                    color:          theme.textMuted
+                    color:          theme.textSecondary
                 }
             }
 
@@ -265,8 +265,8 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 text:           "mateo"
                 font.family:    theme.fontBody
-                font.pixelSize: 11
-                color:          theme.textMuted
+                font.pixelSize: 12
+                color:          theme.textSecondary
                 opacity:        root.collapsed ? 0 : 1
                 Behavior on opacity { NumberAnimation { duration: 200 } }
             }
