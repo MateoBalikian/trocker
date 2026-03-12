@@ -72,6 +72,7 @@ class VideosManager(QObject):
         self._thumbnail_cache.clear()
         self.videosChanged.emit()
         self.activeVideoChanged.emit()
+        self.activeProjectChanged.emit()
 
     @Slot(str)
     def setProjectName(self, name: str):
@@ -81,6 +82,16 @@ class VideosManager(QObject):
     @Property(str, notify=activeProjectChanged)
     def activeProjectName(self):
         return self._project_name
+
+    @Property(str, notify=activeProjectChanged)
+    def activeProjectPath(self):
+        return self._project_path
+
+    @Property(str, notify=activeVideoChanged)
+    def activeVideoPath(self):
+        if not self._active_video or not self._project_path:
+            return ""
+        return os.path.join(self._project_path, self._active_video).replace("\\", "/")
 
     @Property(list, notify=videosChanged)
     def videos(self):

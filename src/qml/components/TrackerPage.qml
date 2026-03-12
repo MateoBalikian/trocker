@@ -8,17 +8,8 @@ Item {
     property QtObject theme
 
     // ── Helpers ──────────────────────────────────────────────────────────────
-    readonly property bool hasActiveVideo: videosManager
-                                           ? videosManager.activeVideo !== ""
-                                           : false
-    readonly property string activeVideoPath: {
-        if (!videosManager || !videosManager.activeVideo) return ""
-        const vids = videosManager.videos
-        for (let i = 0; i < vids.length; i++) {
-            if (vids[i].name === videosManager.activeVideo) return vids[i].path
-        }
-        return ""
-    }
+    readonly property bool   hasActiveVideo:  videosManager ? videosManager.activeVideo !== "" : false
+    readonly property string activeVideoPath: videosManager ? videosManager.activeVideoPath : ""
 
     // ── Background ───────────────────────────────────────────────────────────
     Rectangle {
@@ -463,7 +454,7 @@ Item {
 
             Item { width: 1; height: errorText.text !== "" ? 12 : 0 }
 
-            // ── Start button ──────────────────────────────────────────────────
+            // ── Actions ───────────────────────────────────────────────────────
             Rectangle {
                 id: startBtn
                 width:  parent.width
@@ -487,7 +478,7 @@ Item {
 
                 Text {
                     anchors.centerIn: parent
-                    text: trackerWorker.running ? "Cancel" : "Start Processing"
+                    text: trackerWorker.running ? "Cancel Tracking" : "Start Tracking"
                     font.family:    theme.fontBody
                     font.pixelSize: 13
                     font.weight:    Font.SemiBold

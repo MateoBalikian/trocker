@@ -56,28 +56,9 @@ Window {
                 theme: theme
             }
 
-            // 2 — Homography (placeholder)
-            Item {
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 8
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text:               "Homography"
-                        font.family:        theme.fontDisplay
-                        font.weight:        Font.Normal
-                        font.pixelSize:     56
-                        font.letterSpacing: 2
-                        color:              theme.textPrimary
-                    }
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text:           "content area"
-                        font.family:    theme.fontBody
-                        font.pixelSize: 12
-                        color:          theme.textMuted
-                    }
-                }
+            // 2 — Homography
+            HomographyPage {
+                theme: theme
             }
 
             // 3 — Reports (placeholder)
