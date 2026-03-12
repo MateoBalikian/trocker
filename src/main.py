@@ -8,6 +8,8 @@ from modules.projects_manager import ProjectsManager
 from modules.videos_manager import VideosManager
 from modules.tracker_worker import TrackerWorker
 from modules.homography_module import HomographyManager
+from modules.getpixelcoord import GetPixelCoordManager
+from modules.reid import ReidManager
 
 BASE_DIR   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FONTS_DIR  = os.path.join(BASE_DIR, "fonts")
@@ -26,13 +28,17 @@ app.setWindowIcon(QIcon(ICON_PATH))
 projects_manager = ProjectsManager(PROJ_DIR)
 videos_manager   = VideosManager()
 tracker_worker   = TrackerWorker()
-homography_manager = HomographyManager()
+homography_manager   = HomographyManager()
+getpixelcoord_manager = GetPixelCoordManager(videos_manager, projects_manager)
+reid_manager          = ReidManager(videos_manager, projects_manager)
 
 engine = QQmlApplicationEngine()
 engine.rootContext().setContextProperty("projectsManager", projects_manager)
 engine.rootContext().setContextProperty("videosManager",   videos_manager)
 engine.rootContext().setContextProperty("trackerWorker",   tracker_worker)
-engine.rootContext().setContextProperty("homographyManager", homography_manager)
+engine.rootContext().setContextProperty("homographyManager",    homography_manager)
+engine.rootContext().setContextProperty("getpixelcoordManager", getpixelcoord_manager)
+engine.rootContext().setContextProperty("reidManager",          reid_manager)
 engine.load(QML_MAIN)
 
 if not engine.rootObjects():

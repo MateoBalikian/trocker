@@ -22,6 +22,7 @@ Item {
     property var navItems: [
         { label: "Projects",   icon: "⊞" },
         { label: "Tracker",    icon: "◎" },
+        { label: "Pixel Data", icon: "⌖" },
         { label: "Homography", icon: "⌗" },
         { label: "Reports",    icon: "▤" },
         { label: "Settings",   icon: "⚙" }

@@ -56,12 +56,17 @@ Window {
                 theme: theme
             }
 
-            // 2 — Homography
+            // 2 — Pixel Data
+            PixelDataPage {
+                theme: theme
+            }
+
+            // 3 — Homography
             HomographyPage {
                 theme: theme
             }
 
-            // 3 — Reports (placeholder)
+            // 5 — Reports (placeholder)
             Item {
                 Column {
                     anchors.centerIn: parent
@@ -85,7 +90,7 @@ Window {
                 }
             }
 
-            // 4 — Settings (placeholder)
+            // 6 — Settings (placeholder)
             Item {
                 Column {
                     anchors.centerIn: parent
