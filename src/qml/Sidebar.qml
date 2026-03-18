@@ -21,6 +21,7 @@ Item {
     // ── Nav model ──────────────────────────────────────────────────────────
     property var navItems: [
         { label: "Projects",   icon: "⊞" },
+        { label: "Edit Video", icon: "✦" },
         { label: "Tracker",    icon: "◎" },
         { label: "Pixel Data", icon: "⌖" },
         { label: "Homography", icon: "⌗" },

@@ -3,7 +3,8 @@
     "allow": [
       "Bash(gh --version)",
       "Bash(where gh:*)",
-      "Bash(gh auth:*)"
+      "Bash(gh auth:*)",
+      "Bash(trocker/Scripts/python src/main.py)"
     ]
   }
 }

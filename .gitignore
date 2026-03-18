@@ -1,5 +1,7 @@
-trocker/ 
-__pycache__/ 
-*.pyc 
-test.py 
-.agent/ 
+trocker/
+__pycache__/
+*.pyc
+test.py
+.agent/
+projects/
+models/

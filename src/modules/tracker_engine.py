@@ -302,8 +302,14 @@ def process_video(video_path: str, model, tracker, config: dict,
             frame = cv2.resize(frame, (W, H), interpolation=cv2.INTER_LINEAR)
 
         # ── Detection ────────────────────────────────────────────────────────
-        results = model(frame, device=device, verbose=False)
-        dets = []
+       results = model(
+    frame,
+    device=device,
+    conf=config.get("conf", 0.15),
+    iou=config.get("iou", 0.50),
+    vid_stride=config.get("vid_stride", 1),
+    verbose=False,
+)
         for result in results:
             for box in result.boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())

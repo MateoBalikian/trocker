@@ -51,17 +51,22 @@ Window {
                 theme: theme
             }
 
-            // 1 — Tracker
+            // 1 — Edit Video
+            EditVideoPage {
+                theme: theme
+            }
+
+            // 2 — Tracker
             TrackerPage {
                 theme: theme
             }
 
-            // 2 — Pixel Data
+            // 3 — Pixel Data
             PixelDataPage {
                 theme: theme
             }
 
-            // 3 — Homography
+            // 4 — Homography
             HomographyPage {
                 theme: theme
             }
