@@ -537,12 +537,14 @@ Item {
             activeVideoPath,
             modelCombo.currentText,
             trackerCombo.currentText,
-            parseFloat(confField.value)   || 0.15,
-            parseFloat(iouField.value)    || 0.50,
+            parseFloat(confField.value)        || 0.15,
+            parseFloat(iouField.value)         || 0.50,
             deviceCombo.currentText,
-            parseInt(strideField.value)   || 1,
+            parseInt(strideField.value)        || 1,
             coordCombo.currentText,
-            _parseClasses()
+            _parseClasses(),
+            parseInt(trackBufferField.value)   || 120,
+            parseFloat(matchThreshField.value) || 0.60
         )
     }
 

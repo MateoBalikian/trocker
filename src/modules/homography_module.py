@@ -400,7 +400,7 @@ class PointSelectorWindow(QMainWindow):
         
         self.length_edit = QLineEdit()
         self.length_edit.setPlaceholderText("105.0")
-        self.length_edit.setStyleSheet("QLineEdit { background-color: #ffffff; padding: 5px; border-radius: 3px; font-size: 12px; }")
+        self.length_edit.setStyleSheet("QLineEdit { background-color: #ffffff; color: #111111; padding: 5px; border-radius: 3px; font-size: 12px; }")
         left_layout.addWidget(self.length_edit)
         
         left_layout.addSpacing(10)
@@ -412,7 +412,7 @@ class PointSelectorWindow(QMainWindow):
         
         self.width_edit = QLineEdit()
         self.width_edit.setPlaceholderText("68.0")
-        self.width_edit.setStyleSheet("QLineEdit { background-color: #ffffff; padding: 5px; border-radius: 3px; font-size: 12px; }")
+        self.width_edit.setStyleSheet("QLineEdit { background-color: #ffffff; color: #111111; padding: 5px; border-radius: 3px; font-size: 12px; }")
         left_layout.addWidget(self.width_edit)
         
         self.dlt_panel = QWidget()

@@ -207,8 +207,9 @@ def get_marker_coords(df, marker_id):
 def _find_csv_options(video_path, project_path):
     """
     Retorna lista de opções de CSV para o vídeo dado.
-    Reutiliza a mesma lógica robusta do getpixelcoord.
+    Busca por múltiplas variantes do nome e faz fuzzy match no diretório.
     """
+    import re
     pixel_dir  = os.path.join(project_path, "data", "pixel_coordinates")
     bboxes_dir = os.path.join(project_path, "data", "bboxes")
     if not os.path.isdir(pixel_dir):
@@ -217,25 +218,55 @@ def _find_csv_options(video_path, project_path):
     stem = os.path.splitext(os.path.basename(video_path))[0]
     base = stem[:-8] if stem.endswith("_tracked") else stem
 
-    candidates = [
-        (f"{base}_tracked.csv",        "Tracked coordinates", False),
-        (f"{base}_field_keypoints.csv", "Field keypoints",    True),
-        (f"{stem}_tracked.csv",         "Tracked coordinates", False),
-        (f"{stem}_field_keypoints.csv", "Field keypoints",    True),
-    ]
+    # Also strip timestamp suffixes like _edited_YYYYMMDD_HHMM from base
+    short_base = re.sub(r"_edited_\d{8}_\d{4}$", "", base)
+    short_stem = re.sub(r"_edited_\d{8}_\d{4}$", "", stem)
+
+    # All prefixes to try (most specific first)
+    prefixes = dict.fromkeys([base, stem, short_base, short_stem])
+
+    # Named candidates: (filename, label, is_field_keypoints)
+    named_candidates = []
+    for p in prefixes:
+        named_candidates += [
+            (f"{p}_tracked.csv",         "Tracked coordinates", False),
+            (f"{p}_field_keypoints.csv",  "Field keypoints",    True),
+            (f"{p}.csv",                  "Coordinates",        False),
+        ]
+
     options, seen = [], set()
-    for filename, label, is_kp in candidates:
+
+    def _add(filename, label, is_kp):
         path = os.path.join(pixel_dir, filename)
-        if path not in seen and os.path.isfile(path):
-            seen.add(path)
-            bbox_path = None
-            if not is_kp:
-                bp = os.path.join(bboxes_dir, filename.replace("_tracked.csv", "_bboxes.csv"))
-                if os.path.isfile(bp):
-                    bbox_path = bp
-            options.append({"label": label, "filename": filename,
-                            "path": path, "bboxes_path": bbox_path,
-                            "is_field_keypoints": is_kp})
+        if path in seen or not os.path.isfile(path):
+            return
+        seen.add(path)
+        bbox_path = None
+        if not is_kp:
+            bp = os.path.join(bboxes_dir,
+                              filename.replace("_tracked.csv", "_bboxes.csv")
+                                      .replace(".csv", "_bboxes.csv")
+                                      .replace("_bboxes_bboxes.csv", "_bboxes.csv"))
+            if os.path.isfile(bp):
+                bbox_path = bp
+        options.append({"label": label, "filename": filename,
+                        "path": path, "bboxes_path": bbox_path,
+                        "is_field_keypoints": is_kp})
+
+    for filename, label, is_kp in named_candidates:
+        _add(filename, label, is_kp)
+
+    # Fuzzy fallback: any CSV whose stem starts with one of our prefixes
+    if not options:
+        all_csvs = [f for f in os.listdir(pixel_dir) if f.lower().endswith(".csv")]
+        for f in sorted(all_csvs):
+            f_stem = os.path.splitext(f)[0]
+            for p in prefixes:
+                if p and f_stem.startswith(p):
+                    is_kp = "keypoints" in f
+                    _add(f, "Tracked coordinates" if not is_kp else "Field keypoints", is_kp)
+                    break
+
     return options
 
 
@@ -578,6 +609,7 @@ class ReIDWindow(QMainWindow):
             ("btn_erase_traj",    "Erase Traj.",      "warning", self._erase_trajectory),
             ("btn_delete_marker", "Delete Marker",    "danger",  self._delete_markers),
             ("btn_undo",          "Undo",             "",        self._undo),
+            ("btn_smooth",        "Smooth",           "success", self._smooth_trajectories),
             ("btn_save",          "Update / Close",   "success", self._update_and_close),
         ]:
             btn = QPushButton(label)
@@ -671,6 +703,10 @@ class ReIDWindow(QMainWindow):
         self.btn_jump_to_frame.clicked.connect(self._jump_to_range_start)
         overlay_row.addWidget(self.btn_jump_to_frame)
         right_layout.addLayout(overlay_row)
+
+        btn_expand = QPushButton("⛶  Expandir Player")
+        btn_expand.clicked.connect(self._open_expanded_player)
+        right_layout.addWidget(btn_expand)
 
         # Marker info label
         self.video_marker_info = QLabel("")
@@ -982,7 +1018,7 @@ class ReIDWindow(QMainWindow):
         self._update_video_display()
 
     def _update_video_display(self):
-        """Renderiza o frame atual no mini-player."""
+        """Renderiza o frame atual no mini-player com redimensionamento correto."""
         if self._cap is None or not self._cap.isOpened():
             return
 
@@ -991,21 +1027,29 @@ class ReIDWindow(QMainWindow):
         if not ret:
             return
 
+        # Redimensiona para o tamanho do painel antes de criar QImage
+        view_w = max(self.video_view.width() - 4, 320)
+        view_h = max(self.video_view.height() - 4, 240)
+        orig_h, orig_w = frame.shape[:2]
+        scale = min(view_w / orig_w, view_h / orig_h)
+        new_w = int(orig_w * scale)
+        new_h = int(orig_h * scale)
+        frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         h, w, ch  = frame_rgb.shape
         qimg      = QImage(frame_rgb.data, w, h, ch * w, QImage.Format.Format_RGB888)
         pixmap    = QPixmap.fromImage(qimg)
 
-        # Sobrepõe markers se habilitado
+        # Sobrepõe markers se habilitado (já no tamanho redimensionado)
         if self.btn_toggle_overlay.isChecked() and self.df is not None:
-            pixmap = self._draw_markers_on_pixmap(pixmap, self._current_frame)
+            pixmap = self._draw_markers_on_pixmap(pixmap, self._current_frame, scale)
 
         self.video_scene.clear()
         self.video_scene.addPixmap(pixmap)
         self.video_view.fitInView(self.video_scene.sceneRect(),
                                   Qt.AspectRatioMode.KeepAspectRatio)
 
-        # Sync slider sem loop
         self.video_slider.blockSignals(True)
         self.video_slider.setValue(self._current_frame)
         self.video_slider.blockSignals(False)
@@ -1013,10 +1057,9 @@ class ReIDWindow(QMainWindow):
         self.video_frame_label.setText(
             f"Frame: {self._current_frame + 1} / {self._total_frames}")
 
-        # Info dos markers ativos neste frame
         self._update_video_marker_info()
 
-    def _draw_markers_on_pixmap(self, pixmap, frame_idx):
+    def _draw_markers_on_pixmap(self, pixmap, frame_idx, scale=1.0):
         """Desenha marcadores sobre o pixmap do mini-player."""
         if self.df is None:
             return pixmap
@@ -1037,17 +1080,19 @@ class ReIDWindow(QMainWindow):
             if pd.isna(x) or pd.isna(y):
                 continue
 
+            x = float(x) * scale
+            y = float(y) * scale
+
             is_selected = mid in selected
             color = QColor(255, 80, 80) if is_selected else QColor(80, 200, 80)
             painter.setPen(QPen(color, 2))
             painter.setBrush(color)
-            painter.drawEllipse(QPointF(float(x), float(y)), 4, 4)
+            painter.drawEllipse(QPointF(x, y), 4, 4)
             painter.setFont(QFont("Arial", 10, QFont.Weight.Bold))
-            # Sombra
             painter.setPen(QPen(QColor(0, 0, 0)))
-            painter.drawText(QPointF(float(x) + 7, float(y) + 4), str(mid))
+            painter.drawText(QPointF(x + 7, y + 4), str(mid))
             painter.setPen(QPen(color))
-            painter.drawText(QPointF(float(x) + 6, float(y) + 3), str(mid))
+            painter.drawText(QPointF(x + 6, y + 3), str(mid))
 
         painter.end()
         return pixmap
@@ -1179,6 +1224,15 @@ class ReIDWindow(QMainWindow):
 
     # ── Operations helpers ────────────────────────────────────────────────────
 
+    def _flash_status(self, msg: str, color: str = "#2DD480"):
+        """Mostra mensagem no status_label por 3 segundos."""
+        self.status_label.setText(msg)
+        self.status_label.setStyleSheet(f"color: {color}; font-weight: bold;")
+        QTimer.singleShot(3000, lambda: (
+            self.status_label.setText(""),
+            self.status_label.setStyleSheet("")
+        ))
+
     def _snapshot(self):
         self.temp_history.append(self.df.copy())
         if self.bboxes_df is not None and not self.field_keypoints_mode:
@@ -1215,6 +1269,7 @@ class ReIDWindow(QMainWindow):
                     for col in cols:
                         self._interpolate(self.bboxes_df, col, start, end, n)
         self._update_plot()
+        self._flash_status(f"Fill Gaps aplicado em {len(selected)} markers")
 
     def _merge_markers(self):
         if self.df is None:
@@ -1253,6 +1308,7 @@ class ReIDWindow(QMainWindow):
 
         self._update_marker_list_widget()
         self._update_plot()
+        self._flash_status(f"Merge concluído → marker {target}")
 
     def _swap_markers(self):
         if self.df is None:
@@ -1276,6 +1332,7 @@ class ReIDWindow(QMainWindow):
                         self.bboxes_df.at[f, c1], self.bboxes_df.at[f, c2] = (
                             self.bboxes_df.at[f, c2], self.bboxes_df.at[f, c1])
         self._update_plot()
+        self._flash_status(f"Swap concluído entre markers {m1} e {m2}")
 
     def _erase_trajectory(self):
         if self.df is None:
@@ -1297,6 +1354,7 @@ class ReIDWindow(QMainWindow):
                     if col in self.bboxes_df.columns:
                         self.bboxes_df.loc[start:end, col] = float("nan")
         self._update_plot()
+        self._flash_status(f"Trajetória apagada em {len(selected)} markers", color="#FF9830")
 
     def _delete_markers(self):
         if self.df is None:
@@ -1320,6 +1378,7 @@ class ReIDWindow(QMainWindow):
 
         self._update_marker_list_widget()
         self._update_plot()
+        self._flash_status(f"Markers deletados: {selected}", color="#FF4560")
 
     def _remove_marker_from_state(self, mid):
         if mid in self.all_markers:
@@ -1349,6 +1408,193 @@ class ReIDWindow(QMainWindow):
         self.start_frame_spin.setMaximum(n); self.start_frame_spin.setValue(1)
         self.end_frame_spin.setMaximum(n);   self.end_frame_spin.setValue(n)
         self._update_plot()
+        self._flash_status("Undo aplicado")
+
+    def _smooth_trajectories(self):
+        """Aplica Savitzky-Golay nas trajetórias de todos os markers visíveis."""
+        if self.df is None:
+            return
+        from scipy.signal import savgol_filter
+        import numpy as np
+
+        fps = 24.0
+        if self._cap is not None and self._cap.isOpened():
+            fps = self._cap.get(cv2.CAP_PROP_FPS) or 24.0
+
+        window = max(5, int(round(fps * 0.5)) | 1)
+        polyorder = min(3, window - 1)
+
+        self._snapshot()
+        selected = self._get_selected_markers()
+        if not selected:
+            selected = self.all_markers
+
+        for mid in selected:
+            for axis in ("x", "y"):
+                col = f"p{mid}_{axis}"
+                if col not in self.df.columns:
+                    continue
+                series = self.df[col].copy()
+                valid = series.notna()
+                if valid.sum() < window:
+                    continue
+                s = pd.Series(series.values.copy().astype(float))
+                s = s.interpolate(method="linear", limit_direction="both")
+                smoothed_vals = savgol_filter(s.values, window_length=window, polyorder=polyorder)
+                smoothed_vals[~valid.values] = np.nan
+                self.df[col] = smoothed_vals
+
+        if self.bboxes_df is not None and not self.field_keypoints_mode:
+            for mid in selected:
+                for suffix in ("xmin", "ymin", "xmax", "ymax"):
+                    col = f"p{mid}_{suffix}"
+                    if col not in self.bboxes_df.columns:
+                        continue
+                    series = self.bboxes_df[col].copy()
+                    valid = series.notna()
+                    if valid.sum() < window:
+                        continue
+                    s = pd.Series(series.values.copy().astype(float))
+                    s = s.interpolate(method="linear", limit_direction="both")
+                    smoothed_vals = savgol_filter(s.values, window_length=window, polyorder=polyorder)
+                    smoothed_vals[~valid.values] = np.nan
+                    self.bboxes_df[col] = smoothed_vals
+
+        self._update_plot()
+        self._flash_status(
+            f"Smooth aplicado — janela={window} frames ({window/fps:.2f}s) @ {fps:.0f}fps")
+
+    def _open_expanded_player(self):
+        """Abre player interativo com slider, play/pause e navegação frame a frame."""
+        if self._cap is None or not self._cap.isOpened():
+            return
+
+        show_overlay = self.btn_toggle_overlay.isChecked() and self.df is not None
+        fps = self._cap.get(cv2.CAP_PROP_FPS) or 24.0
+        total = self._total_frames
+        start_frame = self._current_frame
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Expanded Player")
+        dlg.setMinimumSize(1280, 760)
+        dlg.setStyleSheet(_DARK_SS)
+
+        cap2 = cv2.VideoCapture(self.video_path)
+        cur  = [start_frame]
+        playing = [False]
+
+        # ── widgets ──────────────────────────────────────────────────────────
+        lbl = QLabel()
+        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        lbl.setStyleSheet("background: #000;")
+
+        frame_label = QLabel(f"Frame  {start_frame + 1}  /  {total}")
+        frame_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        frame_label.setStyleSheet("color: #6868A0; font-size: 11px;")
+
+        slider = QSlider(Qt.Orientation.Horizontal)
+        slider.setRange(0, max(0, total - 1))
+        slider.setValue(start_frame)
+
+        btn_prev = QPushButton("◀")
+        btn_play = QPushButton("▶  Play")
+        btn_next = QPushButton("▶▶")
+        btn_ov   = QPushButton("Overlay")
+        btn_ov.setCheckable(True)
+        btn_ov.setChecked(show_overlay)
+
+        for b in (btn_prev, btn_play, btn_next):
+            b.setFixedWidth(90)
+        btn_play.setFixedWidth(110)
+
+        ctrl = QHBoxLayout()
+        ctrl.addWidget(btn_prev)
+        ctrl.addWidget(btn_play)
+        ctrl.addWidget(btn_next)
+        ctrl.addStretch()
+        ctrl.addWidget(btn_ov)
+
+        layout = QVBoxLayout(dlg)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
+        layout.addWidget(lbl)
+        layout.addWidget(frame_label)
+        layout.addWidget(slider)
+        layout.addLayout(ctrl)
+
+        # ── helpers ──────────────────────────────────────────────────────────
+        def render(frame_idx):
+            cap2.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+            ret, frame = cap2.read()
+            if not ret:
+                return
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            h2, w2, ch2 = frame_rgb.shape
+            qimg = QImage(frame_rgb.data, w2, h2, ch2 * w2, QImage.Format.Format_RGB888)
+            px = QPixmap.fromImage(qimg)
+            if btn_ov.isChecked() and self.df is not None:
+                px = self._draw_markers_on_pixmap(px, frame_idx, scale=1.0)
+            px = px.scaled(lbl.width() or 1260, lbl.height() or 700,
+                           Qt.AspectRatioMode.KeepAspectRatio,
+                           Qt.TransformationMode.SmoothTransformation)
+            lbl.setPixmap(px)
+            frame_label.setText(f"Frame  {frame_idx + 1}  /  {total}")
+
+        timer = QTimer(dlg)
+        timer.setInterval(max(16, int(1000 / fps)))
+
+        def on_timer():
+            if cur[0] + 1 >= total:
+                playing[0] = False
+                btn_play.setText("▶  Play")
+                timer.stop()
+                return
+            cur[0] += 1
+            slider.blockSignals(True)
+            slider.setValue(cur[0])
+            slider.blockSignals(False)
+            render(cur[0])
+
+        def on_slider(v):
+            cur[0] = v
+            render(v)
+
+        def toggle_play():
+            if playing[0]:
+                playing[0] = False
+                btn_play.setText("▶  Play")
+                timer.stop()
+            else:
+                playing[0] = True
+                btn_play.setText("⏸  Pause")
+                timer.start()
+
+        def step(delta):
+            if playing[0]:
+                return
+            cur[0] = max(0, min(total - 1, cur[0] + delta))
+            slider.blockSignals(True)
+            slider.setValue(cur[0])
+            slider.blockSignals(False)
+            render(cur[0])
+
+        timer.timeout.connect(on_timer)
+        slider.valueChanged.connect(on_slider)
+        btn_play.clicked.connect(toggle_play)
+        btn_prev.clicked.connect(lambda: step(-1))
+        btn_next.clicked.connect(lambda: step(1))
+        btn_ov.clicked.connect(lambda: render(cur[0]))
+
+        def on_close(event):
+            timer.stop()
+            cap2.release()
+            event.accept()
+
+        dlg.closeEvent = on_close
+
+        render(start_frame)
+        dlg.exec()
 
     def _update_and_close(self):
         if self.df is None:

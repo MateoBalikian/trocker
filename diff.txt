@@ -1,0 +1,940 @@
+﻿diff --git a/src/main.py b/src/main.py
+index a75092a..47aafc1 100644
+--- a/src/main.py
++++ b/src/main.py
+@@ -11,6 +11,7 @@ from modules.homography_module import HomographyManager
+ from modules.getpixelcoord import GetPixelCoordManager
+ from modules.reid import ReidManager
+ from modules.edit_video import EditVideoManager
++from modules.reports import ReportsManager
+ 
+ BASE_DIR   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ FONTS_DIR  = os.path.join(BASE_DIR, "fonts")
+@@ -33,6 +34,7 @@ homography_manager   = HomographyManager()
+ getpixelcoord_manager = GetPixelCoordManager(videos_manager, projects_manager)
+ reid_manager          = ReidManager(videos_manager, projects_manager)
+ edit_video_manager    = EditVideoManager(videos_manager)
++reports_manager       = ReportsManager(videos_manager)
+ 
+ engine = QQmlApplicationEngine()
+ engine.rootContext().setContextProperty("projectsManager", projects_manager)
+@@ -42,6 +44,7 @@ engine.rootContext().setContextProperty("homographyManager",    homography_manag
+ engine.rootContext().setContextProperty("getpixelcoordManager", getpixelcoord_manager)
+ engine.rootContext().setContextProperty("reidManager",          reid_manager)
+ engine.rootContext().setContextProperty("editVideoManager",     edit_video_manager)
++engine.rootContext().setContextProperty("reportsManager",       reports_manager)
+ engine.load(QML_MAIN)
+ 
+ if not engine.rootObjects():
+diff --git a/src/modules/getpixelcoord.py b/src/modules/getpixelcoord.py
+index 492f9a7..4f73049 100644
+--- a/src/modules/getpixelcoord.py
++++ b/src/modules/getpixelcoord.py
+@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
+     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
+     QSlider, QFileDialog, QMessageBox, QGraphicsView, QGraphicsScene,
+     QApplication, QDialog, QButtonGroup, QRadioButton, QGraphicsRectItem,
+-    QGraphicsTextItem, QSpinBox
++    QGraphicsTextItem, QSpinBox, QLineEdit
+ )
+ from PySide6.QtCore import Qt, QRectF, QPointF, Signal, QTimer
+ from PySide6.QtGui import QPixmap, QImage, QPainter, QColor, QPen, QFont, QBrush
+@@ -230,7 +230,7 @@ class GetPixelCoordWindow(QMainWindow):
+             ("btn_cycle_up",     "Marker Γåæ",      "Next marker (Tab)",                   "",        self.cycle_marker),
+             ("btn_cycle_down",   "Marker Γåô",      "Prev marker (Shift+Tab)",             "",        self.cycle_marker_down),
+             ("btn_save_csv",     "Save",          "",                                     "success", self.save_csv),
+-            ("btn_edit_teams",   "Edit Teams",    "Open Team Manager",                    "",        self.open_team_manager),
++            ("btn_edit_names",   "Edit Names",    "Renomear markers",                     "",        self.open_name_editor),
+             ("btn_help",         "Help",          "",                                     "",        self.show_help),
+         ]:
+             btn = QPushButton(label)
+@@ -404,6 +404,7 @@ class GetPixelCoordWindow(QMainWindow):
+             self.csv_status_label.setText(f"CSV loaded: {os.path.basename(path)}")
+             self.csv_status_label.setStyleSheet("color: #2DD480; font-weight: bold; font-size: 11px;")
+             self._update_video_frame()
++            self._load_player_names()
+ 
+         except Exception as e:
+             msg = f"Failed to load CSV: {e}"
+@@ -445,6 +446,43 @@ class GetPixelCoordWindow(QMainWindow):
+         except Exception as e:
+             print(f"Warning: could not load bounding box CSV: {e}")
+ 
++    # ΓöÇΓöÇ Player names ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++
++    def _players_json_path(self):
++        """Retorna o caminho do JSON de nomes dos jogadores."""
++        if not self.project_path or not self.video_path:
++            return None
++        stem = os.path.splitext(os.path.basename(self.video_path))[0]
++        base = stem[:-8] if stem.endswith("_tracked") else stem
++        return os.path.join(self.project_path, "metadata", f"{base}_players.json")
++
++    def _load_player_names(self):
++        """Carrega nomes do JSON se existir."""
++        path = self._players_json_path()
++        if not path or not os.path.isfile(path):
++            return
++        try:
++            import json
++            with open(path, "r", encoding="utf-8") as f:
++                data = json.load(f)
++            self.player_names = {int(k): v for k, v in data.items()}
++        except Exception as e:
++            print(f"Warning: could not load player names: {e}")
++
++    def _save_player_names(self):
++        """Salva nomes no JSON."""
++        path = self._players_json_path()
++        if not path:
++            return
++        try:
++            import json
++            os.makedirs(os.path.dirname(path), exist_ok=True)
++            with open(path, "w", encoding="utf-8") as f:
++                json.dump({str(k): v for k, v in self.player_names.items()},
++                          f, ensure_ascii=False, indent=2)
++        except Exception as e:
++            print(f"Warning: could not save player names: {e}")
++
+     # ΓöÇΓöÇ ReID integration ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+ 
+     def open_reid(self):
+@@ -656,8 +694,9 @@ class GetPixelCoordWindow(QMainWindow):
+                 painter.drawEllipse(QPointF(x, y), 4, 4)
+ 
+             # Label do marker
+-            label = str(self.marker_numbers[idx]) if (
+-                self.marker_numbers and idx < len(self.marker_numbers)) else str(idx + 1)
++            mid = self.marker_numbers[idx] if (
++                self.marker_numbers and idx < len(self.marker_numbers)) else idx + 1
++            label = self.player_names.get(mid, str(mid))
+             painter.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+             # Sombra do texto
+             painter.setPen(QPen(QColor(0, 0, 0)))
+@@ -699,9 +738,10 @@ class GetPixelCoordWindow(QMainWindow):
+         n_val = self.marker_numbers[self.selected_marker] if (
+             self.marker_numbers and 0 <= self.selected_marker < len(self.marker_numbers)
+         ) else self.selected_marker + 1
+-        self.hud_marker_label.setText(f"Marker  {n_val}")
++        display_name = self.player_names.get(n_val, f"Marker {n_val}")
++        self.hud_marker_label.setText(display_name)
+         self.hud_sub_label.setText(
+-            f"{self.selected_marker + 1} / {self.marker_count}  ΓÇö  Tab to cycle")
++            f"ID {n_val}  ┬╖  {self.selected_marker + 1} / {self.marker_count}  ΓÇö  Tab to cycle")
+ 
+     def _apply_zoom(self, zoom_level, center=None):
+         if not self.graphics_scene.items():
+@@ -937,25 +977,80 @@ class GetPixelCoordWindow(QMainWindow):
+             ]
+         self.bboxes = new_bboxes
+ 
+-    # ΓöÇΓöÇ Team manager ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++    # ΓöÇΓöÇ Name editor ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+ 
+-    def open_team_manager(self):
+-        if not self.project_path or not self.video_path:
+-            QMessageBox.warning(self, "No Project", "No project or video loaded.")
++    def open_name_editor(self):
++        """Di├ílogo para editar o nome de cada marker."""
++        if not self.marker_numbers:
++            QMessageBox.warning(self, "No Markers", "Load a CSV first.")
+             return
+-        try:
+-            from modules.create_team import run_team_manager
+-            result = run_team_manager(
+-                project_path=self.project_path,
+-                video_path=self.video_path,
+-                parent=self,
+-            )
+-            if result == 1:
+-                QMessageBox.information(self, "Success", "Team management completed!")
+-        except ImportError as e:
+-            QMessageBox.critical(self, "Error", f"Could not load team manager: {e}")
+-        except Exception as e:
+-            QMessageBox.critical(self, "Error", f"Failed to open team manager: {e}")
++
++        dlg = QDialog(self)
++        dlg.setWindowTitle("Edit Player Names")
++        dlg.setMinimumWidth(360)
++        dlg.setStyleSheet("""
++            QWidget { background-color: #0D0D14; color: #EEEEF8; }
++            QLineEdit {
++                background-color: #1D1D2C; color: #EEEEF8;
++                border: 1px solid #303050; border-radius: 6px;
++                padding: 6px 10px;
++            }
++            QLineEdit:focus { border-color: #4282FF; }
++            QPushButton {
++                background-color: #1D1D2C; color: #A0A0C0;
++                border: 1px solid #222230; border-radius: 6px; padding: 6px 14px;
++            }
++            QPushButton:hover { background-color: #242438; color: #EEEEF8; }
++            QPushButton[role="primary"] {
++                background-color: #4282FF; color: #fff; border-color: transparent;
++                font-weight: bold;
++            }
++            QPushButton[role="primary"]:hover { background-color: #6098FF; }
++        """)
++        layout = QVBoxLayout(dlg)
++        layout.setSpacing(8)
++        layout.setContentsMargins(16, 16, 16, 16)
++
++        title = QLabel("Defina um nome para cada marker:")
++        title.setStyleSheet("color: #EEEEF8; font-weight: bold; margin-bottom: 4px;")
++        layout.addWidget(title)
++
++        fields = {}
++        for mid in self.marker_numbers:
++            row = QHBoxLayout()
++            lbl = QLabel(f"Marker {mid}:")
++            lbl.setFixedWidth(80)
++            lbl.setStyleSheet("color: #A0A0C0;")
++            field = QLineEdit()
++            field.setPlaceholderText(f"p{mid}")
++            field.setText(self.player_names.get(mid, ""))
++            row.addWidget(lbl)
++            row.addWidget(field)
++            layout.addLayout(row)
++            fields[mid] = field
++
++        layout.addSpacing(8)
++        btn_row = QHBoxLayout()
++        btn_row.addStretch()
++        btn_cancel = QPushButton("Cancelar")
++        btn_save   = QPushButton("Salvar")
++        btn_save.setProperty("role", "primary")
++        btn_cancel.clicked.connect(dlg.reject)
++        btn_save.clicked.connect(dlg.accept)
++        btn_row.addWidget(btn_cancel)
++        btn_row.addWidget(btn_save)
++        layout.addLayout(btn_row)
++
++        if dlg.exec() == QDialog.DialogCode.Accepted:
++            for mid, field in fields.items():
++                name = field.text().strip()
++                if name:
++                    self.player_names[mid] = name
++                else:
++                    self.player_names.pop(mid, None)
++            self._save_player_names()
++            self._update_video_frame()
++            self._update_hud_label()
+ 
+     # ΓöÇΓöÇ Help ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+ 
+diff --git a/src/modules/homography_module.py b/src/modules/homography_module.py
+index d32c0e5..5198e11 100644
+--- a/src/modules/homography_module.py
++++ b/src/modules/homography_module.py
+@@ -400,7 +400,7 @@ class PointSelectorWindow(QMainWindow):
+         
+         self.length_edit = QLineEdit()
+         self.length_edit.setPlaceholderText("105.0")
+-        self.length_edit.setStyleSheet("QLineEdit { background-color: #ffffff; padding: 5px; border-radius: 3px; font-size: 12px; }")
++        self.length_edit.setStyleSheet("QLineEdit { background-color: #ffffff; color: #111111; padding: 5px; border-radius: 3px; font-size: 12px; }")
+         left_layout.addWidget(self.length_edit)
+         
+         left_layout.addSpacing(10)
+@@ -412,7 +412,7 @@ class PointSelectorWindow(QMainWindow):
+         
+         self.width_edit = QLineEdit()
+         self.width_edit.setPlaceholderText("68.0")
+-        self.width_edit.setStyleSheet("QLineEdit { background-color: #ffffff; padding: 5px; border-radius: 3px; font-size: 12px; }")
++        self.width_edit.setStyleSheet("QLineEdit { background-color: #ffffff; color: #111111; padding: 5px; border-radius: 3px; font-size: 12px; }")
+         left_layout.addWidget(self.width_edit)
+         
+         self.dlt_panel = QWidget()
+diff --git a/src/modules/reid.py b/src/modules/reid.py
+index 419363a..8715130 100644
+--- a/src/modules/reid.py
++++ b/src/modules/reid.py
+@@ -207,8 +207,9 @@ def get_marker_coords(df, marker_id):
+ def _find_csv_options(video_path, project_path):
+     """
+     Retorna lista de op├º├╡es de CSV para o v├¡deo dado.
+-    Reutiliza a mesma l├│gica robusta do getpixelcoord.
++    Busca por m├║ltiplas variantes do nome e faz fuzzy match no diret├│rio.
+     """
++    import re
+     pixel_dir  = os.path.join(project_path, "data", "pixel_coordinates")
+     bboxes_dir = os.path.join(project_path, "data", "bboxes")
+     if not os.path.isdir(pixel_dir):
+@@ -217,25 +218,55 @@ def _find_csv_options(video_path, project_path):
+     stem = os.path.splitext(os.path.basename(video_path))[0]
+     base = stem[:-8] if stem.endswith("_tracked") else stem
+ 
+-    candidates = [
+-        (f"{base}_tracked.csv",        "Tracked coordinates", False),
+-        (f"{base}_field_keypoints.csv", "Field keypoints",    True),
+-        (f"{stem}_tracked.csv",         "Tracked coordinates", False),
+-        (f"{stem}_field_keypoints.csv", "Field keypoints",    True),
+-    ]
++    # Also strip timestamp suffixes like _edited_YYYYMMDD_HHMM from base
++    short_base = re.sub(r"_edited_\d{8}_\d{4}$", "", base)
++    short_stem = re.sub(r"_edited_\d{8}_\d{4}$", "", stem)
++
++    # All prefixes to try (most specific first)
++    prefixes = dict.fromkeys([base, stem, short_base, short_stem])
++
++    # Named candidates: (filename, label, is_field_keypoints)
++    named_candidates = []
++    for p in prefixes:
++        named_candidates += [
++            (f"{p}_tracked.csv",         "Tracked coordinates", False),
++            (f"{p}_field_keypoints.csv",  "Field keypoints",    True),
++            (f"{p}.csv",                  "Coordinates",        False),
++        ]
++
+     options, seen = [], set()
+-    for filename, label, is_kp in candidates:
++
++    def _add(filename, label, is_kp):
+         path = os.path.join(pixel_dir, filename)
+-        if path not in seen and os.path.isfile(path):
+-            seen.add(path)
+-            bbox_path = None
+-            if not is_kp:
+-                bp = os.path.join(bboxes_dir, filename.replace("_tracked.csv", "_bboxes.csv"))
+-                if os.path.isfile(bp):
+-                    bbox_path = bp
+-            options.append({"label": label, "filename": filename,
+-                            "path": path, "bboxes_path": bbox_path,
+-                            "is_field_keypoints": is_kp})
++        if path in seen or not os.path.isfile(path):
++            return
++        seen.add(path)
++        bbox_path = None
++        if not is_kp:
++            bp = os.path.join(bboxes_dir,
++                              filename.replace("_tracked.csv", "_bboxes.csv")
++                                      .replace(".csv", "_bboxes.csv")
++                                      .replace("_bboxes_bboxes.csv", "_bboxes.csv"))
++            if os.path.isfile(bp):
++                bbox_path = bp
++        options.append({"label": label, "filename": filename,
++                        "path": path, "bboxes_path": bbox_path,
++                        "is_field_keypoints": is_kp})
++
++    for filename, label, is_kp in named_candidates:
++        _add(filename, label, is_kp)
++
++    # Fuzzy fallback: any CSV whose stem starts with one of our prefixes
++    if not options:
++        all_csvs = [f for f in os.listdir(pixel_dir) if f.lower().endswith(".csv")]
++        for f in sorted(all_csvs):
++            f_stem = os.path.splitext(f)[0]
++            for p in prefixes:
++                if p and f_stem.startswith(p):
++                    is_kp = "keypoints" in f
++                    _add(f, "Tracked coordinates" if not is_kp else "Field keypoints", is_kp)
++                    break
++
+     return options
+ 
+ 
+@@ -578,6 +609,7 @@ class ReIDWindow(QMainWindow):
+             ("btn_erase_traj",    "Erase Traj.",      "warning", self._erase_trajectory),
+             ("btn_delete_marker", "Delete Marker",    "danger",  self._delete_markers),
+             ("btn_undo",          "Undo",             "",        self._undo),
++            ("btn_smooth",        "Smooth",           "success", self._smooth_trajectories),
+             ("btn_save",          "Update / Close",   "success", self._update_and_close),
+         ]:
+             btn = QPushButton(label)
+@@ -672,6 +704,10 @@ class ReIDWindow(QMainWindow):
+         overlay_row.addWidget(self.btn_jump_to_frame)
+         right_layout.addLayout(overlay_row)
+ 
++        btn_expand = QPushButton("Γ¢╢  Expandir Player")
++        btn_expand.clicked.connect(self._open_expanded_player)
++        right_layout.addWidget(btn_expand)
++
+         # Marker info label
+         self.video_marker_info = QLabel("")
+         self.video_marker_info.setWordWrap(True)
+@@ -982,7 +1018,7 @@ class ReIDWindow(QMainWindow):
+         self._update_video_display()
+ 
+     def _update_video_display(self):
+-        """Renderiza o frame atual no mini-player."""
++        """Renderiza o frame atual no mini-player com redimensionamento correto."""
+         if self._cap is None or not self._cap.isOpened():
+             return
+ 
+@@ -991,21 +1027,29 @@ class ReIDWindow(QMainWindow):
+         if not ret:
+             return
+ 
++        # Redimensiona para o tamanho do painel antes de criar QImage
++        view_w = max(self.video_view.width() - 4, 320)
++        view_h = max(self.video_view.height() - 4, 240)
++        orig_h, orig_w = frame.shape[:2]
++        scale = min(view_w / orig_w, view_h / orig_h)
++        new_w = int(orig_w * scale)
++        new_h = int(orig_h * scale)
++        frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
++
+         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+         h, w, ch  = frame_rgb.shape
+         qimg      = QImage(frame_rgb.data, w, h, ch * w, QImage.Format.Format_RGB888)
+         pixmap    = QPixmap.fromImage(qimg)
+ 
+-        # Sobrep├╡e markers se habilitado
++        # Sobrep├╡e markers se habilitado (j├í no tamanho redimensionado)
+         if self.btn_toggle_overlay.isChecked() and self.df is not None:
+-            pixmap = self._draw_markers_on_pixmap(pixmap, self._current_frame)
++            pixmap = self._draw_markers_on_pixmap(pixmap, self._current_frame, scale)
+ 
+         self.video_scene.clear()
+         self.video_scene.addPixmap(pixmap)
+         self.video_view.fitInView(self.video_scene.sceneRect(),
+                                   Qt.AspectRatioMode.KeepAspectRatio)
+ 
+-        # Sync slider sem loop
+         self.video_slider.blockSignals(True)
+         self.video_slider.setValue(self._current_frame)
+         self.video_slider.blockSignals(False)
+@@ -1013,10 +1057,9 @@ class ReIDWindow(QMainWindow):
+         self.video_frame_label.setText(
+             f"Frame: {self._current_frame + 1} / {self._total_frames}")
+ 
+-        # Info dos markers ativos neste frame
+         self._update_video_marker_info()
+ 
+-    def _draw_markers_on_pixmap(self, pixmap, frame_idx):
++    def _draw_markers_on_pixmap(self, pixmap, frame_idx, scale=1.0):
+         """Desenha marcadores sobre o pixmap do mini-player."""
+         if self.df is None:
+             return pixmap
+@@ -1037,17 +1080,19 @@ class ReIDWindow(QMainWindow):
+             if pd.isna(x) or pd.isna(y):
+                 continue
+ 
++            x = float(x) * scale
++            y = float(y) * scale
++
+             is_selected = mid in selected
+             color = QColor(255, 80, 80) if is_selected else QColor(80, 200, 80)
+             painter.setPen(QPen(color, 2))
+             painter.setBrush(color)
+-            painter.drawEllipse(QPointF(float(x), float(y)), 4, 4)
++            painter.drawEllipse(QPointF(x, y), 4, 4)
+             painter.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+-            # Sombra
+             painter.setPen(QPen(QColor(0, 0, 0)))
+-            painter.drawText(QPointF(float(x) + 7, float(y) + 4), str(mid))
++            painter.drawText(QPointF(x + 7, y + 4), str(mid))
+             painter.setPen(QPen(color))
+-            painter.drawText(QPointF(float(x) + 6, float(y) + 3), str(mid))
++            painter.drawText(QPointF(x + 6, y + 3), str(mid))
+ 
+         painter.end()
+         return pixmap
+@@ -1179,6 +1224,15 @@ class ReIDWindow(QMainWindow):
+ 
+     # ΓöÇΓöÇ Operations helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+ 
++    def _flash_status(self, msg: str, color: str = "#2DD480"):
++        """Mostra mensagem no status_label por 3 segundos."""
++        self.status_label.setText(msg)
++        self.status_label.setStyleSheet(f"color: {color}; font-weight: bold;")
++        QTimer.singleShot(3000, lambda: (
++            self.status_label.setText(""),
++            self.status_label.setStyleSheet("")
++        ))
++
+     def _snapshot(self):
+         self.temp_history.append(self.df.copy())
+         if self.bboxes_df is not None and not self.field_keypoints_mode:
+@@ -1215,6 +1269,7 @@ class ReIDWindow(QMainWindow):
+                     for col in cols:
+                         self._interpolate(self.bboxes_df, col, start, end, n)
+         self._update_plot()
++        self._flash_status(f"Fill Gaps aplicado em {len(selected)} markers")
+ 
+     def _merge_markers(self):
+         if self.df is None:
+@@ -1253,6 +1308,7 @@ class ReIDWindow(QMainWindow):
+ 
+         self._update_marker_list_widget()
+         self._update_plot()
++        self._flash_status(f"Merge conclu├¡do ΓåÆ marker {target}")
+ 
+     def _swap_markers(self):
+         if self.df is None:
+@@ -1276,6 +1332,7 @@ class ReIDWindow(QMainWindow):
+                         self.bboxes_df.at[f, c1], self.bboxes_df.at[f, c2] = (
+                             self.bboxes_df.at[f, c2], self.bboxes_df.at[f, c1])
+         self._update_plot()
++        self._flash_status(f"Swap conclu├¡do entre markers {m1} e {m2}")
+ 
+     def _erase_trajectory(self):
+         if self.df is None:
+@@ -1297,6 +1354,7 @@ class ReIDWindow(QMainWindow):
+                     if col in self.bboxes_df.columns:
+                         self.bboxes_df.loc[start:end, col] = float("nan")
+         self._update_plot()
++        self._flash_status(f"Trajet├│ria apagada em {len(selected)} markers", color="#FF9830")
+ 
+     def _delete_markers(self):
+         if self.df is None:
+@@ -1320,6 +1378,7 @@ class ReIDWindow(QMainWindow):
+ 
+         self._update_marker_list_widget()
+         self._update_plot()
++        self._flash_status(f"Markers deletados: {selected}", color="#FF4560")
+ 
+     def _remove_marker_from_state(self, mid):
+         if mid in self.all_markers:
+@@ -1349,6 +1408,193 @@ class ReIDWindow(QMainWindow):
+         self.start_frame_spin.setMaximum(n); self.start_frame_spin.setValue(1)
+         self.end_frame_spin.setMaximum(n);   self.end_frame_spin.setValue(n)
+         self._update_plot()
++        self._flash_status("Undo aplicado")
++
++    def _smooth_trajectories(self):
++        """Aplica Savitzky-Golay nas trajet├│rias de todos os markers vis├¡veis."""
++        if self.df is None:
++            return
++        from scipy.signal import savgol_filter
++        import numpy as np
++
++        fps = 24.0
++        if self._cap is not None and self._cap.isOpened():
++            fps = self._cap.get(cv2.CAP_PROP_FPS) or 24.0
++
++        window = max(5, int(round(fps * 0.5)) | 1)
++        polyorder = min(3, window - 1)
++
++        self._snapshot()
++        selected = self._get_selected_markers()
++        if not selected:
++            selected = self.all_markers
++
++        for mid in selected:
++            for axis in ("x", "y"):
++                col = f"p{mid}_{axis}"
++                if col not in self.df.columns:
++                    continue
++                series = self.df[col].copy()
++                valid = series.notna()
++                if valid.sum() < window:
++                    continue
++                s = pd.Series(series.values.copy().astype(float))
++                s = s.interpolate(method="linear", limit_direction="both")
++                smoothed_vals = savgol_filter(s.values, window_length=window, polyorder=polyorder)
++                smoothed_vals[~valid.values] = np.nan
++                self.df[col] = smoothed_vals
++
++        if self.bboxes_df is not None and not self.field_keypoints_mode:
++            for mid in selected:
++                for suffix in ("xmin", "ymin", "xmax", "ymax"):
++                    col = f"p{mid}_{suffix}"
++                    if col not in self.bboxes_df.columns:
++                        continue
++                    series = self.bboxes_df[col].copy()
++                    valid = series.notna()
++                    if valid.sum() < window:
++                        continue
++                    s = pd.Series(series.values.copy().astype(float))
++                    s = s.interpolate(method="linear", limit_direction="both")
++                    smoothed_vals = savgol_filter(s.values, window_length=window, polyorder=polyorder)
++                    smoothed_vals[~valid.values] = np.nan
++                    self.bboxes_df[col] = smoothed_vals
++
++        self._update_plot()
++        self._flash_status(
++            f"Smooth aplicado ΓÇö janela={window} frames ({window/fps:.2f}s) @ {fps:.0f}fps")
++
++    def _open_expanded_player(self):
++        """Abre player interativo com slider, play/pause e navega├º├úo frame a frame."""
++        if self._cap is None or not self._cap.isOpened():
++            return
++
++        show_overlay = self.btn_toggle_overlay.isChecked() and self.df is not None
++        fps = self._cap.get(cv2.CAP_PROP_FPS) or 24.0
++        total = self._total_frames
++        start_frame = self._current_frame
++
++        dlg = QDialog(self)
++        dlg.setWindowTitle("Expanded Player")
++        dlg.setMinimumSize(1280, 760)
++        dlg.setStyleSheet(_DARK_SS)
++
++        cap2 = cv2.VideoCapture(self.video_path)
++        cur  = [start_frame]
++        playing = [False]
++
++        # ΓöÇΓöÇ widgets ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++        lbl = QLabel()
++        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
++        lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
++        lbl.setStyleSheet("background: #000;")
++
++        frame_label = QLabel(f"Frame  {start_frame + 1}  /  {total}")
++        frame_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
++        frame_label.setStyleSheet("color: #6868A0; font-size: 11px;")
++
++        slider = QSlider(Qt.Orientation.Horizontal)
++        slider.setRange(0, max(0, total - 1))
++        slider.setValue(start_frame)
++
++        btn_prev = QPushButton("ΓùÇ")
++        btn_play = QPushButton("Γû╢  Play")
++        btn_next = QPushButton("Γû╢Γû╢")
++        btn_ov   = QPushButton("Overlay")
++        btn_ov.setCheckable(True)
++        btn_ov.setChecked(show_overlay)
++
++        for b in (btn_prev, btn_play, btn_next):
++            b.setFixedWidth(90)
++        btn_play.setFixedWidth(110)
++
++        ctrl = QHBoxLayout()
++        ctrl.addWidget(btn_prev)
++        ctrl.addWidget(btn_play)
++        ctrl.addWidget(btn_next)
++        ctrl.addStretch()
++        ctrl.addWidget(btn_ov)
++
++        layout = QVBoxLayout(dlg)
++        layout.setContentsMargins(12, 12, 12, 12)
++        layout.setSpacing(8)
++        layout.addWidget(lbl)
++        layout.addWidget(frame_label)
++        layout.addWidget(slider)
++        layout.addLayout(ctrl)
++
++        # ΓöÇΓöÇ helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++        def render(frame_idx):
++            cap2.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
++            ret, frame = cap2.read()
++            if not ret:
++                return
++            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
++            h2, w2, ch2 = frame_rgb.shape
++            qimg = QImage(frame_rgb.data, w2, h2, ch2 * w2, QImage.Format.Format_RGB888)
++            px = QPixmap.fromImage(qimg)
++            if btn_ov.isChecked() and self.df is not None:
++                px = self._draw_markers_on_pixmap(px, frame_idx, scale=1.0)
++            px = px.scaled(lbl.width() or 1260, lbl.height() or 700,
++                           Qt.AspectRatioMode.KeepAspectRatio,
++                           Qt.TransformationMode.SmoothTransformation)
++            lbl.setPixmap(px)
++            frame_label.setText(f"Frame  {frame_idx + 1}  /  {total}")
++
++        timer = QTimer(dlg)
++        timer.setInterval(max(16, int(1000 / fps)))
++
++        def on_timer():
++            if cur[0] + 1 >= total:
++                playing[0] = False
++                btn_play.setText("Γû╢  Play")
++                timer.stop()
++                return
++            cur[0] += 1
++            slider.blockSignals(True)
++            slider.setValue(cur[0])
++            slider.blockSignals(False)
++            render(cur[0])
++
++        def on_slider(v):
++            cur[0] = v
++            render(v)
++
++        def toggle_play():
++            if playing[0]:
++                playing[0] = False
++                btn_play.setText("Γû╢  Play")
++                timer.stop()
++            else:
++                playing[0] = True
++                btn_play.setText("ΓÅ╕  Pause")
++                timer.start()
++
++        def step(delta):
++            if playing[0]:
++                return
++            cur[0] = max(0, min(total - 1, cur[0] + delta))
++            slider.blockSignals(True)
++            slider.setValue(cur[0])
++            slider.blockSignals(False)
++            render(cur[0])
++
++        timer.timeout.connect(on_timer)
++        slider.valueChanged.connect(on_slider)
++        btn_play.clicked.connect(toggle_play)
++        btn_prev.clicked.connect(lambda: step(-1))
++        btn_next.clicked.connect(lambda: step(1))
++        btn_ov.clicked.connect(lambda: render(cur[0]))
++
++        def on_close(event):
++            timer.stop()
++            cap2.release()
++            event.accept()
++
++        dlg.closeEvent = on_close
++
++        render(start_frame)
++        dlg.exec()
+ 
+     def _update_and_close(self):
+         if self.df is None:
+diff --git a/src/modules/tracker_engine.py b/src/modules/tracker_engine.py
+index a634336..4e66201 100644
+--- a/src/modules/tracker_engine.py
++++ b/src/modules/tracker_engine.py
+@@ -197,10 +197,12 @@ def initialize_yolo_and_tracker(model_name: str, tracker_name: str,
+ 
+     elif tracker_name == "botsort":
+         reid = Path(_resolve_reid_weights())
++        # BoTSORT exige device como ├¡ndice num├⌐rico ("0") ou "cpu", n├úo "cuda"
++        botsort_device = "0" if device == "cuda" else "cpu"
+         params = {
+             "reid_weights": reid,
+-            "device": torch.device(device),
+-            "half": True,
++            "device":       botsort_device,
++            "half":         True,
+         }
+         params.update(_filter(BotSort, advanced_params))
+         tracker = BotSort(**params)
+@@ -302,14 +304,14 @@ def process_video(video_path: str, model, tracker, config: dict,
+             frame = cv2.resize(frame, (W, H), interpolation=cv2.INTER_LINEAR)
+ 
+         # ΓöÇΓöÇ Detection ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-       results = model(
+-    frame,
+-    device=device,
+-    conf=config.get("conf", 0.15),
+-    iou=config.get("iou", 0.50),
+-    vid_stride=config.get("vid_stride", 1),
+-    verbose=False,
+-)
++        results = model(
++            frame,
++            device=device,
++            conf=config.get("conf", 0.15),
++            iou=config.get("iou", 0.50),
++            verbose=False,
++        )
++        dets = []
+         for result in results:
+             for box in result.boxes:
+                 x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+@@ -384,4 +386,4 @@ def process_video(video_path: str, model, tracker, config: dict,
+         "video_path":      out_video_path,
+         "csv_path":        out_csv,
+         "bboxes_csv_path": out_bboxes,
+-    }
++    }
+\ No newline at end of file
+diff --git a/src/modules/tracker_worker.py b/src/modules/tracker_worker.py
+index 88ef578..d187333 100644
+--- a/src/modules/tracker_worker.py
++++ b/src/modules/tracker_worker.py
+@@ -36,6 +36,8 @@ class _Worker(QThread):
+             )
+             self.finished.emit(result)
+         except Exception as exc:
++            import traceback
++            traceback.print_exc()
+             self.failed.emit(str(exc))
+ 
+ 
+@@ -73,10 +75,10 @@ class TrackerWorker(QObject):
+         return self._running
+ 
+     # ΓöÇΓöÇ Slots (callable from QML) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-    @Slot(str, str, str, float, float, str, int, str, "QVariantList")
++    @Slot(str, str, str, float, float, str, int, str, "QVariantList", int, float)
+     def start(self, video_path: str, model_name: str, tracker_name: str,
+               conf: float, iou: float, device: str, vid_stride: int,
+-              coord_type: str, classes: list):
++              coord_type: str, classes: list, track_buffer: int, match_thresh: float):
+         if self._running:
+             return
+ 
+@@ -100,7 +102,12 @@ class TrackerWorker(QObject):
+             "classes":      [int(c) for c in classes] if classes else [],
+         }
+ 
+-        self._thread = _Worker(config=config, advanced_params={})
++        advanced_params = {
++            "track_buffer": track_buffer,
++            "match_thresh": match_thresh,
++        }
++
++        self._thread = _Worker(config=config, advanced_params=advanced_params)
+         self._thread.progressChanged.connect(self._on_progress)
+         self._thread.statusChanged.connect(self._on_status)
+         self._thread.finished.connect(self._on_finished)
+diff --git a/src/modules/videos_manager.py b/src/modules/videos_manager.py
+index b4c7b55..a67a3c5 100644
+--- a/src/modules/videos_manager.py
++++ b/src/modules/videos_manager.py
+@@ -91,24 +91,39 @@ class VideosManager(QObject):
+     def activeVideoPath(self):
+         if not self._active_video or not self._project_path:
+             return ""
+-        return os.path.join(self._project_path, self._active_video).replace("\\", "/")
++        root_path = os.path.join(self._project_path, self._active_video)
++        if os.path.isfile(root_path):
++            return root_path.replace("\\", "/")
++        videos_path = os.path.join(self._project_path, "videos", self._active_video)
++        if os.path.isfile(videos_path):
++            return videos_path.replace("\\", "/")
++        return root_path.replace("\\", "/")
+ 
+     @Property(list, notify=videosChanged)
+     def videos(self):
+         if not self._project_path or not os.path.isdir(self._project_path):
+             return []
+         result = []
+-        for name in sorted(os.listdir(self._project_path)):
+-            if os.path.splitext(name)[1].lower() not in self.VIDEO_EXTS:
+-                continue
+-            full = os.path.join(self._project_path, name)
+-            result.append({
+-                "name":      name,
+-                "path":      full.replace("\\", "/"),
+-                "duration":  self._get_duration(full),
+-                "isActive":  name == self._active_video,
+-                "thumbnail": self._get_thumbnail(full, name),
+-            })
++        dirs_to_scan = [self._project_path]
++        videos_subdir = os.path.join(self._project_path, "videos")
++        if os.path.isdir(videos_subdir):
++            dirs_to_scan.append(videos_subdir)
++        seen = set()
++        for scan_dir in dirs_to_scan:
++            for name in sorted(os.listdir(scan_dir)):
++                if os.path.splitext(name)[1].lower() not in self.VIDEO_EXTS:
++                    continue
++                full = os.path.join(scan_dir, name)
++                if full in seen:
++                    continue
++                seen.add(full)
++                result.append({
++                    "name":      name,
++                    "path":      full.replace("\\", "/"),
++                    "duration":  self._get_duration(full),
++                    "isActive":  name == self._active_video,
++                    "thumbnail": self._get_thumbnail(full, name),
++                })
+         return result
+ 
+     @Property(str, notify=activeVideoChanged)
+@@ -138,15 +153,49 @@ class VideosManager(QObject):
+         new_name = new_name.strip()
+         if not new_name or old_name == new_name:
+             return False
+-        # Preserve extension if user omitted it
+         if not os.path.splitext(new_name)[1]:
+             new_name += os.path.splitext(old_name)[1]
++
+         old_path = os.path.join(self._project_path, old_name)
+-        new_path = os.path.join(self._project_path, new_name)
+-        if not os.path.exists(old_path) or os.path.exists(new_path):
++        if not os.path.exists(old_path):
++            old_path = os.path.join(self._project_path, "videos", old_name)
++        if not os.path.exists(old_path):
++            return False
++
++        new_path = os.path.join(os.path.dirname(old_path), new_name)
++        if os.path.exists(new_path):
+             return False
++
+         os.rename(old_path, new_path)
+-        # Evict cache entries for the old path
++
++        old_stem = os.path.splitext(old_name)[0]
++        new_stem = os.path.splitext(new_name)[0]
++        print(f"[renameVideo] old_stem={old_stem!r}  new_stem={new_stem!r}")
++
++        related_dirs = [
++            os.path.join(self._project_path, "data", "pixel_coordinates"),
++            os.path.join(self._project_path, "data", "bboxes"),
++            os.path.join(self._project_path, "data", "homography"),
++            os.path.join(self._project_path, "metadata"),
++            os.path.join(self._project_path, "videos"),
++        ]
++        for d in related_dirs:
++            if not os.path.isdir(d):
++                print(f"[renameVideo]   skip (no dir): {d}")
++                continue
++            print(f"[renameVideo]   scanning: {d}")
++            for fname in os.listdir(d):
++                if fname.startswith(old_stem):
++                    src = os.path.join(d, fname)
++                    dst = os.path.join(d, new_stem + fname[len(old_stem):])
++                    if not os.path.exists(dst):
++                        print(f"[renameVideo]     rename {fname!r} -> {os.path.basename(dst)!r}")
++                        os.rename(src, dst)
++                    else:
++                        print(f"[renameVideo]     skip (dst exists): {fname!r}")
++                else:
++                    print(f"[renameVideo]     no match: {fname!r}")
++
+         self._duration_cache.pop(old_path, None)
+         self._thumbnail_cache.pop(old_path, None)
+         if self._active_video == old_name:
+diff --git a/src/qml/components/TrackerPage.qml b/src/qml/components/TrackerPage.qml
+index 4d02747..aaf5bfe 100644
+--- a/src/qml/components/TrackerPage.qml
++++ b/src/qml/components/TrackerPage.qml
+@@ -537,12 +537,14 @@ Item {
+             activeVideoPath,
+             modelCombo.currentText,
+             trackerCombo.currentText,
+-            parseFloat(confField.value)   || 0.15,
+-            parseFloat(iouField.value)    || 0.50,
++            parseFloat(confField.value)        || 0.15,
++            parseFloat(iouField.value)         || 0.50,
+             deviceCombo.currentText,
+-            parseInt(strideField.value)   || 1,
++            parseInt(strideField.value)        || 1,
+             coordCombo.currentText,
+-            _parseClasses()
++            _parseClasses(),
++            parseInt(trackBufferField.value)   || 120,
++            parseFloat(matchThreshField.value) || 0.60
+         )
+     }
+ 
+diff --git a/src/qml/main.qml b/src/qml/main.qml
+index 9d1fd69..991e451 100644
+--- a/src/qml/main.qml
++++ b/src/qml/main.qml
+@@ -71,28 +71,9 @@ Window {
+                 theme: theme
+             }
+ 
+-            // 5 ΓÇö Reports (placeholder)
+-            Item {
+-                Column {
+-                    anchors.centerIn: parent
+-                    spacing: 8
+-                    Text {
+-                        anchors.horizontalCenter: parent.horizontalCenter
+-                        text:               "Reports"
+-                        font.family:        theme.fontDisplay
+-                        font.weight:        Font.Normal
+-                        font.pixelSize:     56
+-                        font.letterSpacing: 2
+-                        color:              theme.textPrimary
+-                    }
+-                    Text {
+-                        anchors.horizontalCenter: parent.horizontalCenter
+-                        text:           "content area"
+-                        font.family:    theme.fontBody
+-                        font.pixelSize: 12
+-                        color:          theme.textMuted
+-                    }
+-                }
++            // 5 ΓÇö Reports
++            ReportsPage {
++                theme: theme
+             }
+ 
+             // 6 ΓÇö Settings (placeholder)

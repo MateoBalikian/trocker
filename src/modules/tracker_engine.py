@@ -197,10 +197,12 @@ def initialize_yolo_and_tracker(model_name: str, tracker_name: str,
 
     elif tracker_name == "botsort":
         reid = Path(_resolve_reid_weights())
+        # BoTSORT exige device como índice numérico ("0") ou "cpu", não "cuda"
+        botsort_device = "0" if device == "cuda" else "cpu"
         params = {
             "reid_weights": reid,
-            "device": torch.device(device),
-            "half": True,
+            "device":       botsort_device,
+            "half":         True,
         }
         params.update(_filter(BotSort, advanced_params))
         tracker = BotSort(**params)
@@ -302,14 +304,14 @@ def process_video(video_path: str, model, tracker, config: dict,
             frame = cv2.resize(frame, (W, H), interpolation=cv2.INTER_LINEAR)
 
         # ── Detection ────────────────────────────────────────────────────────
-       results = model(
-    frame,
-    device=device,
-    conf=config.get("conf", 0.15),
-    iou=config.get("iou", 0.50),
-    vid_stride=config.get("vid_stride", 1),
-    verbose=False,
-)
+        results = model(
+            frame,
+            device=device,
+            conf=config.get("conf", 0.15),
+            iou=config.get("iou", 0.50),
+            verbose=False,
+        )
+        dets = []
         for result in results:
             for box in result.boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())

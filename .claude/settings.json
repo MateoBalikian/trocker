@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(trocker/Scripts/python.exe -m py_compile src/modules/tracker_engine.py)",
+      "Bash(trocker/Scripts/python.exe -m py_compile src/modules/tracker_worker.py)",
+      "Bash(trocker/Scripts/python.exe -c \"import ast; ast.parse\\(open\\(''src/modules/tracker_engine.py''\\).read\\(\\)\\); print\\(''OK''\\)\")",
+      "Bash(trocker/Scripts/python.exe -m py_compile src/modules/videos_manager.py)",
+      "Bash(trocker/Scripts/python.exe -m py_compile src/modules/homography_module.py)",
+      "Bash(trocker/Scripts/python.exe -m py_compile src/modules/reports.py)"
+    ]
+  }
+}
