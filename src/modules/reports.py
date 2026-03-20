@@ -14,15 +14,16 @@ import matplotlib.patches as mpatches
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.gridspec import GridSpec
+from matplotlib.collections import LineCollection
 from scipy.signal import savgol_filter
+from scipy.ndimage import gaussian_filter
 
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
-    QListWidget, QListWidgetItem, QComboBox, QSplitter, QGroupBox,
-    QScrollArea, QFrame, QApplication, QFileDialog, QMessageBox, QTabWidget
+    QListWidget, QListWidgetItem, QFileDialog, QMessageBox, QTabWidget
 )
 from PySide6.QtCore import Qt, QObject, Slot, QTimer
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QColor
 
 
 # =============================================================================
@@ -116,6 +117,9 @@ SPEED_ZONES = [
     (28, 999,"#DC2626", "Sprint"),
 ]
 
+# Kwargs padrão para legend (fundo branco, legível)
+_LEGEND_KW = dict(fontsize=8, facecolor="white", edgecolor="#CCCCCC", labelcolor="#1A1A1A")
+
 
 # =============================================================================
 # PLAYER METRICS ENGINE
@@ -167,17 +171,26 @@ class PlayerMetrics:
         # Arrays temporais (para plots)
         n = len(self.speed_ms)
         self.time_axis = np.arange(n) / self.fps   # segundos
+        self.dist_per_frame = dist_per_frame        # reutilizado em plot_distance
 
 
 # =============================================================================
-# MATPLOTLIB CANVAS HELPER
+# PLOT HELPERS
 # =============================================================================
 
-def _make_canvas(figsize=(12, 4), nrows=1, ncols=1):
-    with plt.rc_context(MPL_LIGHT):
-        fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
-    fig.tight_layout(pad=2.0)
-    return FigureCanvas(fig), fig, axes
+def _style_ax(ax, title, xlabel, ylabel, *, legend=True, legend_kw=None,
+              grid_axis="both", clean_spines=False):
+    """Aplica estilo padrão a um eixo matplotlib (título, labels, grid, legenda)."""
+    ax.set_title(title, color="#111111", fontsize=12, fontweight="bold")
+    ax.set_xlabel(xlabel, color="#1A1A1A", fontsize=9)
+    ax.set_ylabel(ylabel, color="#1A1A1A", fontsize=9)
+    ax.tick_params(labelsize=8, colors="#1A1A1A")
+    if legend:
+        ax.legend(**{**_LEGEND_KW, **(legend_kw or {})})
+    ax.grid(True, color="#EEEEEE", linewidth=0.8, axis=grid_axis)
+    if clean_spines:
+        ax.spines[["top", "right"]].set_visible(False)
+        ax.spines[["left", "bottom"]].set_color("#CCCCCC")
 
 
 # =============================================================================
@@ -187,9 +200,9 @@ def _make_canvas(figsize=(12, 4), nrows=1, ncols=1):
 def plot_speed_over_time(players: list, ax, title="Speed Over Time"):
     ax.cla()
     ax.set_facecolor(MPL_LIGHT["axes.facecolor"])
+    window = max(3, int(players[0].fps * 0.5))  # fps igual para todos
     for i, p in enumerate(players):
         color = PLAYER_COLORS[i % len(PLAYER_COLORS)]
-        window = max(3, int(p.fps * 0.5))
         smooth = pd.Series(p.speed_kmh).rolling(window, center=True, min_periods=1).mean().values
         ax.plot(p.time_axis, smooth, color=color, linewidth=1.8,
                 alpha=0.9, label=p.name)
@@ -200,12 +213,7 @@ def plot_speed_over_time(players: list, ax, title="Speed Over Time"):
         ax.axhline(y=val, color=color, linewidth=0.8, linestyle="--", alpha=0.55)
         ax.text(0.01, val + 0.4, lbl, color="#555555", fontsize=7,
                 va="bottom", transform=ax.get_yaxis_transform())
-    ax.set_title(title, color="#111111", fontsize=12, fontweight="bold")
-    ax.set_xlabel("Time (s)", color="#1A1A1A", fontsize=9)
-    ax.set_ylabel("Speed (km/h)", color="#1A1A1A", fontsize=9)
-    ax.tick_params(labelsize=8, colors="#1A1A1A")
-    ax.legend(fontsize=8, facecolor="white", edgecolor="#CCCCCC", labelcolor="#1A1A1A")
-    ax.grid(True, color="#EEEEEE", linewidth=0.8)
+    _style_ax(ax, title, "Time (s)", "Speed (km/h)")
 
 
 def plot_accel_over_time(players: list, ax, title="Acceleration Over Time"):
@@ -218,12 +226,7 @@ def plot_accel_over_time(players: list, ax, title="Acceleration Over Time"):
         ax.fill_between(t, p.accel, 0, where=(p.accel > 0), alpha=0.12, color="#16A34A")
         ax.fill_between(t, p.accel, 0, where=(p.accel < 0), alpha=0.12, color="#DC2626")
     ax.axhline(0, color="#888888", linewidth=0.9, linestyle="--")
-    ax.set_title(title, color="#111111", fontsize=12, fontweight="bold")
-    ax.set_xlabel("Time (s)", color="#1A1A1A", fontsize=9)
-    ax.set_ylabel("Accel (m/s²)", color="#1A1A1A", fontsize=9)
-    ax.tick_params(labelsize=8, colors="#1A1A1A")
-    ax.legend(fontsize=8, facecolor="white", edgecolor="#CCCCCC", labelcolor="#1A1A1A")
-    ax.grid(True, color="#EEEEEE", linewidth=0.8)
+    _style_ax(ax, title, "Time (s)", "Accel (m/s²)")
 
 
 def plot_distance_over_time(players: list, ax, title="Cumulative Distance"):
@@ -231,14 +234,9 @@ def plot_distance_over_time(players: list, ax, title="Cumulative Distance"):
     ax.set_facecolor(MPL_LIGHT["axes.facecolor"])
     for i, p in enumerate(players):
         color = PLAYER_COLORS[i % len(PLAYER_COLORS)]
-        dist_cumsum = np.cumsum(np.sqrt(np.diff(p.x)**2 + np.diff(p.y)**2))
+        dist_cumsum = np.cumsum(p.dist_per_frame)
         ax.plot(p.time_axis, dist_cumsum, color=color, linewidth=1.8, label=p.name)
-    ax.set_title(title, color="#111111", fontsize=12, fontweight="bold")
-    ax.set_xlabel("Time (s)", color="#1A1A1A", fontsize=9)
-    ax.set_ylabel("Distance (m)", color="#1A1A1A", fontsize=9)
-    ax.tick_params(labelsize=8, colors="#1A1A1A")
-    ax.legend(fontsize=8, facecolor="white", edgecolor="#CCCCCC", labelcolor="#1A1A1A")
-    ax.grid(True, color="#EEEEEE", linewidth=0.8)
+    _style_ax(ax, title, "Time (s)", "Distance (m)")
 
 
 def plot_bar_comparison(players: list, metric: str, ylabel: str, title: str, ax):
@@ -259,13 +257,8 @@ def plot_bar_comparison(players: list, metric: str, ylabel: str, title: str, ax)
                 bar_h + offset, f"{val:.1f}",
                 ha="center", va=va,
                 color="#1A1A1A", fontsize=9, fontweight="bold")
-    ax.set_title(title, color="#111111", fontsize=12, fontweight="bold", pad=6)
-    ax.set_ylabel(ylabel, color="#1A1A1A", fontsize=9)
     ax.tick_params(axis="x", rotation=30, labelsize=9, colors="#1A1A1A")
-    ax.tick_params(axis="y", labelsize=8, colors="#1A1A1A")
-    ax.grid(True, axis="y", color="#EEEEEE", linewidth=0.8)
-    ax.spines[["top", "right"]].set_visible(False)
-    ax.spines[["left", "bottom"]].set_color("#CCCCCC")
+    _style_ax(ax, title, "", ylabel, legend=False, grid_axis="y", clean_spines=True)
     if values:
         margin = vmax * 0.22
         lo = min(0, min(values)) - margin
@@ -285,15 +278,9 @@ def plot_zone_bars(players: list, ax, title="Time in Speed Zones"):
         ax.bar(names, vals, bottom=bottoms, color=color,
                alpha=0.88, label=label, width=0.6, edgecolor="white", linewidth=0.5)
         bottoms += vals
-    ax.set_title(title, color="#111111", fontsize=12, fontweight="bold")
-    ax.set_ylabel("Time (s)", color="#1A1A1A", fontsize=9)
     ax.tick_params(axis="x", rotation=30, labelsize=9, colors="#1A1A1A")
-    ax.tick_params(axis="y", labelsize=8, colors="#1A1A1A")
-    ax.legend(fontsize=8, facecolor="white", edgecolor="#CCCCCC",
-              labelcolor="#1A1A1A", loc="upper right")
-    ax.grid(True, axis="y", color="#EEEEEE", linewidth=0.8)
-    ax.spines[["top", "right"]].set_visible(False)
-    ax.spines[["left", "bottom"]].set_color("#CCCCCC")
+    _style_ax(ax, title, "", "Time (s)",
+              legend_kw={"loc": "upper right"}, grid_axis="y", clean_spines=True)
 
 
 def plot_trajectory(player: "PlayerMetrics", ax, title=None,
@@ -310,7 +297,6 @@ def plot_trajectory(player: "PlayerMetrics", ax, title=None,
     si = speed[::step]
 
     # Agrupa por zona e plota cada zona como LineCollection
-    from matplotlib.collections import LineCollection
     for lo, hi, color, label in SPEED_ZONES:
         mask = (si >= lo) & (si < hi)
         if not np.any(mask):
@@ -343,14 +329,15 @@ def plot_trajectory(player: "PlayerMetrics", ax, title=None,
               edgecolor="#CCCCCC", labelcolor="#1A1A1A",
               loc="upper right", handlelength=1.2, handleheight=0.8)
 
-    ax.set_title(title or player.name, color="#111111", fontsize=12, fontweight="bold")
-    ax.set_xlabel("X (m)", color="#1A1A1A", fontsize=9)
-    ax.set_ylabel("Y (m)", color="#1A1A1A", fontsize=9)
-    ax.tick_params(labelsize=8, colors="#1A1A1A")
-    ax.spines[["top", "right"]].set_visible(False)
-    ax.spines[["left", "bottom"]].set_color("#CCCCCC")
-    ax.autoscale()
-    ax.set_aspect("equal", adjustable="datalim")
+    _style_ax(ax, title or player.name, "X (m)", "Y (m)",
+              legend=False, clean_spines=True)
+    if field_length and field_width:
+        ax.set_aspect("equal", adjustable="box")
+        ax.set_xlim(0, field_length)
+        ax.set_ylim(0, field_width)
+    else:
+        ax.autoscale()
+        ax.set_aspect("equal", adjustable="datalim")
 
 
 def plot_heatmap(player: "PlayerMetrics", ax, title=None,
@@ -361,8 +348,6 @@ def plot_heatmap(player: "PlayerMetrics", ax, title=None,
 
     # Histograma 2D — muito mais rapido que KDE e legivel para movimento linear
     h, xedges, yedges = np.histogram2d(x, y, bins=60)
-    # Suaviza levemente com gaussiana
-    from scipy.ndimage import gaussian_filter
     h = gaussian_filter(h.T, sigma=1.5)
 
     extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
@@ -375,13 +360,12 @@ def plot_heatmap(player: "PlayerMetrics", ax, title=None,
                                    linewidth=1.5, edgecolor="#444444",
                                    facecolor="none", linestyle="--")
         ax.add_patch(rect)
-
-    ax.set_title(title or player.name, color="#111111", fontsize=12, fontweight="bold")
-    ax.set_xlabel("X (m)", color="#1A1A1A", fontsize=9)
-    ax.set_ylabel("Y (m)", color="#1A1A1A", fontsize=9)
-    ax.tick_params(labelsize=8, colors="#1A1A1A")
-    ax.spines[["top", "right"]].set_visible(False)
-    ax.spines[["left", "bottom"]].set_color("#CCCCCC")
+    _style_ax(ax, title or player.name, "X (m)", "Y (m)",
+              legend=False, clean_spines=True)
+    ax.set_aspect("equal", adjustable="box")
+    if field_length and field_width:
+        ax.set_xlim(0, field_length)
+        ax.set_ylim(0, field_width)
 
 
 # =============================================================================
@@ -500,49 +484,51 @@ class ReportsWindow(QMainWindow):
 
         root.addWidget(right, stretch=1)
 
+        # Conecta tab change uma única vez aqui (evita duplicação em showEvent)
+        self.tabs.currentChanged.connect(lambda _: self._refresh())
+
     # ── Tab builders ──────────────────────────────────────────────────────────
 
-    def _build_overview_tab(self):
-        layout = QVBoxLayout(self.tab_overview)
+    def _build_figure_tab(self, tab_widget, figsize=(14, 8)):
+        """Helper: cria Figure + FigureCanvas em um tab widget."""
+        layout = QVBoxLayout(tab_widget)
         layout.setContentsMargins(0, 8, 0, 0)
         with plt.rc_context(MPL_LIGHT):
-            self.fig_overview = Figure(figsize=(14, 8), facecolor="white")
-        self.canvas_overview = FigureCanvas(self.fig_overview)
-        layout.addWidget(self.canvas_overview)
+            fig = Figure(figsize=figsize, facecolor="white")
+        canvas = FigureCanvas(fig)
+        layout.addWidget(canvas)
+        return fig, canvas
+
+    def _build_overview_tab(self):
+        self.fig_overview, self.canvas_overview = self._build_figure_tab(
+            self.tab_overview, figsize=(14, 8))
 
     def _build_speed_tab(self):
-        layout = QVBoxLayout(self.tab_speed)
-        layout.setContentsMargins(0, 8, 0, 0)
-        with plt.rc_context(MPL_LIGHT):
-            self.fig_speed = Figure(figsize=(14, 9), facecolor="white")
-        self.canvas_speed = FigureCanvas(self.fig_speed)
-        layout.addWidget(self.canvas_speed)
+        self.fig_speed, self.canvas_speed = self._build_figure_tab(
+            self.tab_speed, figsize=(14, 9))
 
     def _build_traj_tab(self):
-        layout = QVBoxLayout(self.tab_traj)
-        layout.setContentsMargins(0, 8, 0, 0)
-        with plt.rc_context(MPL_LIGHT):
-            self.fig_traj = Figure(figsize=(14, 8), facecolor="white")
-        self.canvas_traj = FigureCanvas(self.fig_traj)
-        layout.addWidget(self.canvas_traj)
+        self.fig_traj, self.canvas_traj = self._build_figure_tab(
+            self.tab_traj, figsize=(14, 8))
 
     def _build_heat_tab(self):
-        layout = QVBoxLayout(self.tab_heat)
-        layout.setContentsMargins(0, 8, 0, 0)
-        with plt.rc_context(MPL_LIGHT):
-            self.fig_heat = Figure(figsize=(14, 8), facecolor="white")
-        self.canvas_heat = FigureCanvas(self.fig_heat)
-        layout.addWidget(self.canvas_heat)
+        self.fig_heat, self.canvas_heat = self._build_figure_tab(
+            self.tab_heat, figsize=(14, 8))
 
     # ── Data loading ──────────────────────────────────────────────────────────
+
+    def _video_stem_base(self):
+        """Retorna (stem, base) do vídeo ativo, removendo sufixo _tracked."""
+        stem = os.path.splitext(os.path.basename(self.video_path))[0]
+        base = stem[:-8] if stem.endswith("_tracked") else stem
+        return stem, base
 
     def _auto_load(self):
         """Carrega automaticamente o CSV de homografia do projeto."""
         if not self.project_path or not self.video_path:
             return
 
-        stem = os.path.splitext(os.path.basename(self.video_path))[0]
-        base = stem[:-8] if stem.endswith("_tracked") else stem
+        stem, base = self._video_stem_base()
 
         homog_dir = os.path.join(self.project_path, "data", "homography")
         candidates = [
@@ -583,8 +569,9 @@ class ReportsWindow(QMainWindow):
                 if fps > 0:
                     self.fps = fps
 
-            # Carrega nomes dos jogadores
+            # Carrega nomes dos jogadores e dimensões do campo
             self._load_player_names()
+            self._load_field_dimensions()
 
             # Calcula métricas
             self._compute_metrics()
@@ -598,12 +585,44 @@ class ReportsWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Could not load CSV:\n{e}")
 
+    def _load_field_dimensions(self):
+        """Lê field_length e field_width do JSON da matriz de homografia."""
+        self.field_length = None
+        self.field_width  = None
+        if not self.project_path or not self.video_path:
+            return
+        stem, base = self._video_stem_base()
+        metadata_dir = os.path.join(self.project_path, "metadata")
+        candidates = [
+            os.path.join(metadata_dir, f"{base}_homography_matrix.json"),
+            os.path.join(metadata_dir, f"{base}_tracked_homography_matrix.json"),
+            os.path.join(metadata_dir, f"{stem}_homography_matrix.json"),
+        ]
+        if os.path.isdir(metadata_dir):
+            for f in os.listdir(metadata_dir):
+                if f.startswith(base) and f.endswith("_homography_matrix.json"):
+                    p = os.path.join(metadata_dir, f)
+                    if p not in candidates:
+                        candidates.append(p)
+        for path in candidates:
+            if os.path.isfile(path):
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    fl = data.get("field_length")
+                    fw = data.get("field_width")
+                    if fl and fw:
+                        self.field_length = float(fl)
+                        self.field_width  = float(fw)
+                        return
+                except Exception:
+                    pass
+
     def _load_player_names(self):
         self.player_names = {}
         if not self.project_path or not self.video_path:
             return
-        stem = os.path.splitext(os.path.basename(self.video_path))[0]
-        base = stem[:-8] if stem.endswith("_tracked") else stem
+        _, base = self._video_stem_base()
         path = os.path.join(self.project_path, "metadata", f"{base}_players.json")
         if not os.path.isfile(path):
             return
@@ -625,8 +644,6 @@ class ReportsWindow(QMainWindow):
             y = self.df[f"p{mid}_y"].values
             name = self.player_names.get(mid, f"p{mid}")
             self.players[mid] = PlayerMetrics(mid, x, y, self.fps, name)
-        # Cache: marca que metricas estao atualizadas para o CSV atual
-        self._metrics_computed = True
 
     def _populate_player_list(self):
         self.player_list.blockSignals(True)
@@ -640,6 +657,10 @@ class ReportsWindow(QMainWindow):
             item.setForeground(QColor(color))
             self.player_list.addItem(item)
         self.player_list.blockSignals(False)
+        try:
+            self.player_list.itemChanged.disconnect(self._on_player_check)
+        except RuntimeError:
+            pass
         self.player_list.itemChanged.connect(self._on_player_check)
 
     def _get_selected_players(self):
@@ -652,22 +673,21 @@ class ReportsWindow(QMainWindow):
                     selected.append(self.players[mid])
         return selected
 
-    def _select_all(self):
+    def _set_all_checked(self, state):
         self.player_list.blockSignals(True)
         for i in range(self.player_list.count()):
-            self.player_list.item(i).setCheckState(Qt.CheckState.Checked)
+            self.player_list.item(i).setCheckState(state)
         self.player_list.blockSignals(False)
         self._refresh()
+
+    def _select_all(self):
+        self._set_all_checked(Qt.CheckState.Checked)
 
     def _select_none(self):
-        self.player_list.blockSignals(True)
-        for i in range(self.player_list.count()):
-            self.player_list.item(i).setCheckState(Qt.CheckState.Unchecked)
-        self.player_list.blockSignals(False)
-        self._refresh()
+        self._set_all_checked(Qt.CheckState.Unchecked)
 
     def _on_player_check(self, _item):
-        self._refresh()
+        pass  # Refresh apenas pelo botão ↻ Refresh
 
     # ── Rendering ─────────────────────────────────────────────────────────────
 
@@ -735,45 +755,30 @@ class ReportsWindow(QMainWindow):
 
         self.canvas_speed.draw_idle()
 
-    def _draw_trajectories(self, players):
-        self.fig_traj.clf()
+    def _draw_grid_plots(self, fig, canvas, players, plot_fn):
+        """Renderiza plots em grid (1 por jogador) numa figura compartilhada."""
+        fig.clf()
         with plt.rc_context(MPL_LIGHT):
             n = len(players)
             cols = min(4, n)
             rows = (n + cols - 1) // cols
-            gs = GridSpec(rows, cols, figure=self.fig_traj,
+            gs = GridSpec(rows, cols, figure=fig,
                           hspace=0.4, wspace=0.3,
                           left=0.05, right=0.97, top=0.93, bottom=0.08)
             for i, p in enumerate(players):
-                ax = self.fig_traj.add_subplot(gs[i // cols, i % cols])
-                plot_trajectory(p, ax,
-                                field_length=self.field_length,
-                                field_width=self.field_width)
+                ax = fig.add_subplot(gs[i // cols, i % cols])
+                plot_fn(p, ax, field_length=self.field_length,
+                        field_width=self.field_width)
+        canvas.draw_idle()
 
-        self.canvas_traj.draw_idle()
+    def _draw_trajectories(self, players):
+        self._draw_grid_plots(self.fig_traj, self.canvas_traj, players, plot_trajectory)
 
     def _draw_heatmaps(self, players):
-        self.fig_heat.clf()
-        with plt.rc_context(MPL_LIGHT):
-            n = len(players)
-            cols = min(4, n)
-            rows = (n + cols - 1) // cols
-            gs = GridSpec(rows, cols, figure=self.fig_heat,
-                          hspace=0.4, wspace=0.3,
-                          left=0.05, right=0.97, top=0.93, bottom=0.08)
-            for i, p in enumerate(players):
-                ax = self.fig_heat.add_subplot(gs[i // cols, i % cols])
-                plot_heatmap(p, ax,
-                             field_length=self.field_length,
-                             field_width=self.field_width)
-
-        self.canvas_heat.draw_idle()
-
-    # ── Tab change ────────────────────────────────────────────────────────────
+        self._draw_grid_plots(self.fig_heat, self.canvas_heat, players, plot_heatmap)
 
     def showEvent(self, event):
         super().showEvent(event)
-        self.tabs.currentChanged.connect(lambda _: self._refresh())
         QTimer.singleShot(100, self._refresh)
 
     def closeEvent(self, event):

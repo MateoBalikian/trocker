@@ -209,16 +209,25 @@ def initialize_yolo_and_tracker(model_name: str, tracker_name: str,
 
     elif tracker_name == "strongsort":
         reid = Path(_resolve_reid_weights())
+        # StrongSORT exige device como índice numérico ("0") ou "cpu", não "cuda"
+        strongsort_device = "0" if device == "cuda" else "cpu"
         params = {
             "reid_weights": reid,
-            "device": device,
-            "half": True,
-            "max_cos_dist": 0.2,
+            "device":       strongsort_device,
+            "half":         True,
+            "max_cos_dist": 0.5,
             "max_iou_dist": 0.7,
-            "max_age": 30,
-            "n_init": 3,
-            "nn_budget": 100,
+            "max_age":      30,
+            "n_init":       1,
+            "nn_budget":    100,
         }
+        # Mapeia parâmetros da interface para nomes do StrongSORT.
+        # max_age vai direto em params (não passa por _filter porque é kwargs→BaseTracker).
+        # match_thresh → max_iou_dist é parâmetro explícito, passa pelo _filter normalmente.
+        if "track_buffer" in advanced_params:
+            params["max_age"] = advanced_params.pop("track_buffer")
+        if "match_thresh" in advanced_params:
+            advanced_params["max_iou_dist"] = advanced_params.pop("match_thresh")
         params.update(_filter(StrongSort, advanced_params))
         tracker = StrongSort(**params)
 
@@ -309,6 +318,7 @@ def process_video(video_path: str, model, tracker, config: dict,
             device=device,
             conf=config.get("conf", 0.15),
             iou=config.get("iou", 0.50),
+            imgsz=config.get("imgsz", 1280),
             verbose=False,
         )
         dets = []
