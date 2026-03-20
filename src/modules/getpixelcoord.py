@@ -15,6 +15,7 @@ from PySide6.QtCore import Qt, QRectF, QPointF, Signal, QTimer
 from PySide6.QtGui import QPixmap, QImage, QPainter, QColor, QPen, QFont, QBrush
 
 from .reid import run_reid, _DARK_SS
+from .player_io import players_json_path, load_player_names, save_player_names
 
 
 # =============================================================================
@@ -449,39 +450,15 @@ class GetPixelCoordWindow(QMainWindow):
     # ── Player names ──────────────────────────────────────────────────────────
 
     def _players_json_path(self):
-        """Retorna o caminho do JSON de nomes dos jogadores."""
-        if not self.project_path or not self.video_path:
-            return None
-        stem = os.path.splitext(os.path.basename(self.video_path))[0]
-        base = stem[:-8] if stem.endswith("_tracked") else stem
-        return os.path.join(self.project_path, "metadata", f"{base}_players.json")
+        return players_json_path(self.project_path, self.video_path)
 
     def _load_player_names(self):
-        """Carrega nomes do JSON se existir."""
-        path = self._players_json_path()
-        if not path or not os.path.isfile(path):
-            return
-        try:
-            import json
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            self.player_names = {int(k): v for k, v in data.items()}
-        except Exception as e:
-            print(f"Warning: could not load player names: {e}")
+        names = load_player_names(self.project_path, self.video_path)
+        if names:
+            self.player_names = names
 
     def _save_player_names(self):
-        """Salva nomes no JSON."""
-        path = self._players_json_path()
-        if not path:
-            return
-        try:
-            import json
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump({str(k): v for k, v in self.player_names.items()},
-                          f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"Warning: could not save player names: {e}")
+        save_player_names(self.project_path, self.video_path, self.player_names)
 
     # ── ReID integration ──────────────────────────────────────────────────────
 

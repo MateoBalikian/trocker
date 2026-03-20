@@ -12,6 +12,7 @@ from modules.getpixelcoord import GetPixelCoordManager
 from modules.reid import ReidManager
 from modules.edit_video import EditVideoManager
 from modules.reports import ReportsManager
+from modules.athlete_manager import AthleteManager
 
 BASE_DIR   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FONTS_DIR  = os.path.join(BASE_DIR, "fonts")
@@ -34,7 +35,8 @@ homography_manager   = HomographyManager()
 getpixelcoord_manager = GetPixelCoordManager(videos_manager, projects_manager)
 reid_manager          = ReidManager(videos_manager, projects_manager)
 edit_video_manager    = EditVideoManager(videos_manager)
-reports_manager       = ReportsManager(videos_manager)
+athlete_manager       = AthleteManager(videos_manager)
+reports_manager       = ReportsManager(videos_manager, athlete_manager)
 
 engine = QQmlApplicationEngine()
 engine.rootContext().setContextProperty("projectsManager", projects_manager)
@@ -44,6 +46,7 @@ engine.rootContext().setContextProperty("homographyManager",    homography_manag
 engine.rootContext().setContextProperty("getpixelcoordManager", getpixelcoord_manager)
 engine.rootContext().setContextProperty("reidManager",          reid_manager)
 engine.rootContext().setContextProperty("editVideoManager",     edit_video_manager)
+engine.rootContext().setContextProperty("athleteManager",       athlete_manager)
 engine.rootContext().setContextProperty("reportsManager",       reports_manager)
 engine.load(QML_MAIN)
 

@@ -22,9 +22,7 @@ from PySide6.QtGui import QPixmap, QImage, QPainter, QColor, QFont, QPen, QPolyg
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsLineItem
 from PySide6.QtCore import Qt, QPointF, QRectF
 
-from modules.trigger_zone import (
-    select_trigger_zone, apply_trigger_zone, zone_exists
-)
+from modules.trigger_zone import zone_exists
 
 # =============================================================================
 # CSV RESOLUTION
@@ -1066,27 +1064,6 @@ class HomographyWindow(QWidget):
         self.preselected_btn.clicked.connect(self.preselected_homography_project)
         layout.addWidget(self.preselected_btn)
 
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet("color: #CCCCCC;")
-        layout.addWidget(sep)
-
-        lbl_tz = QLabel("Trigger Zone")
-        lbl_tz.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lbl_tz.setStyleSheet("QLabel { font-size: 13px; font-weight: bold; color: #333; margin: 6px 0; }")
-        layout.addWidget(lbl_tz)
-
-        self.btn_trigger_zone = QPushButton("📍 Definir Trigger Zone")
-        self.btn_trigger_zone.setFixedHeight(40)
-        self.btn_trigger_zone.clicked.connect(self._select_trigger_zone)
-        layout.addWidget(self.btn_trigger_zone)
-
-        self.btn_apply_zone = QPushButton("✂  Aplicar Trigger Zone")
-        self.btn_apply_zone.setFixedHeight(40)
-        self.btn_apply_zone.setEnabled(False)
-        self.btn_apply_zone.clicked.connect(self._apply_trigger_zone)
-        layout.addWidget(self.btn_apply_zone)
-
         self.setLayout(layout)
         
         if self.project_path:
@@ -1118,11 +1095,6 @@ class HomographyWindow(QWidget):
             self.csv_status_label.setText("No CSV file found — run Tracker first")
             self.csv_status_label.setStyleSheet("QLabel { color: #FF5722; font-style: italic; margin: 5px 0px; }")
             self.preselected_btn.setEnabled(False)
-
-        # Habilita botão de aplicar se zona já foi definida anteriormente
-        if self.video_path and self.project_path:
-            if zone_exists(self.video_path, self.project_path):
-                self.btn_apply_zone.setEnabled(True)
 
     def manual_homography_project(self):
         if not self.video_path or not os.path.exists(self.video_path):
@@ -1157,16 +1129,6 @@ class HomographyWindow(QWidget):
             return
         preselected_homography(self, self.csv_path, self.project_path)
 
-    def _select_trigger_zone(self):
-        confirmed = select_trigger_zone(
-            self.video_path, self.project_path, parent=self)
-        if confirmed:
-            self.btn_apply_zone.setEnabled(True)
-
-    def _apply_trigger_zone(self):
-        apply_trigger_zone(self.video_path, self.project_path, parent=self)
-
-
 def run_homography(video_path=None, project_path=None):
     window = HomographyWindow(video_path=video_path, project_path=project_path)
     return window
@@ -1192,3 +1154,13 @@ class HomographyManager(QObject):
         """Chama diretamente o fluxo de Pre-selected Points com resolução robusta do CSV"""
         csv_path = find_csv_for_video(video_path, project_path)
         preselected_homography(parent=None, csv_path=csv_path, project_path=project_path)
+
+    @Slot(str, str)
+    def open_trigger_zone(self, video_path: str, project_path: str):
+        from modules.trigger_zone import select_trigger_zone
+        select_trigger_zone(video_path, project_path, parent=None)
+
+    @Slot(str, str)
+    def apply_trigger_zone_slot(self, video_path: str, project_path: str):
+        from modules.trigger_zone import apply_trigger_zone as _apply_tz
+        _apply_tz(video_path, project_path, parent=None)

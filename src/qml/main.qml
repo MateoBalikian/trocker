@@ -76,7 +76,12 @@ Window {
                 theme: theme
             }
 
-            // 6 — Settings (placeholder)
+            // 6 — Athletes
+            AthletesPage {
+                theme: theme
+            }
+
+            // 7 — Settings (placeholder)
             Item {
                 Column {
                     anchors.centerIn: parent
