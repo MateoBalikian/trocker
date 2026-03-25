@@ -15,8 +15,9 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QFileDialog, QMessageBox, QApplication, QLabel, QSizePolicy,
-    QListWidget, QListWidgetItem, QSpinBox, QDialog, QButtonGroup,
-    QRadioButton, QSlider, QGraphicsView, QGraphicsScene, QGroupBox, QFrame
+    QListWidget, QListWidgetItem, QSpinBox, QDialog, QDialogButtonBox,
+    QButtonGroup, QRadioButton, QSlider, QGraphicsView, QGraphicsScene,
+    QGroupBox, QFrame
 )
 from PySide6.QtCore import Qt, Signal, QRect, QTimer, QPointF
 from PySide6.QtGui import QPainter, QColor, QPen, QBrush, QImage, QPixmap, QFont
@@ -1540,26 +1541,64 @@ class ReIDWindow(QMainWindow):
 
     def _merge_markers_range(self):
         """
-        Merge dois markers apenas dentro do range selecionado no slider.
-        Copia coordenadas do marker ORIGEM → DESTINO (apenas onde DESTINO é NaN),
-        depois zera ORIGEM no range. Fora do range: sem alterações.
+        Merge de dois IDs dentro do range selecionado no slider.
+        O usuário escolhe qual ID deve continuar (dst) e qual deve ser zerado (src).
         """
         checked = [self.all_markers[i] for i, s in enumerate(self.marker_status) if s]
         if len(checked) != 2:
             QMessageBox.warning(self, "Merge Range",
-                "Selecione exatamente 2 markers para o Merge Range.\n"
-                "Use as checkboxes no painel esquerdo.")
+                "Selecione exatamente 2 markers no painel esquerdo\n"
+                "para usar o Merge Range.")
             return
 
         start_frame, end_frame = self.frames_range.getValues()
-        src_id, dst_id = checked[0], checked[1]
+        id_a, id_b = checked[0], checked[1]
+
+        # Dialog to pick which ID is the primary (dst)
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Merge Range — Escolher ID principal")
+        dlg.setMinimumWidth(380)
+        dlg.setStyleSheet(_DARK_SS)
+        layout = QVBoxLayout(dlg)
+        layout.setSpacing(12)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        info = QLabel(
+            f"Range selecionado: frames {start_frame + 1} – {end_frame + 1}\n\n"
+            f"Qual ID deve CONTINUAR existindo nesse range?\n"
+            f"(O outro terá seus dados transferidos e será zerado)")
+        info.setWordWrap(True)
+        info.setStyleSheet("color: #EEEEF8; font-size: 12px;")
+        layout.addWidget(info)
+
+        btn_group = QButtonGroup(dlg)
+        radio_a = QRadioButton(f"ID {id_a}  →  mantém ID {id_a}, zera ID {id_b}")
+        radio_b = QRadioButton(f"ID {id_b}  →  mantém ID {id_b}, zera ID {id_a}")
+        radio_a.setChecked(True)
+        btn_group.addButton(radio_a)
+        btn_group.addButton(radio_b)
+        layout.addWidget(radio_a)
+        layout.addWidget(radio_b)
+
+        btns = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok |
+            QDialogButtonBox.StandardButton.Cancel)
+        btns.accepted.connect(dlg.accept)
+        btns.rejected.connect(dlg.reject)
+        layout.addWidget(btns)
+
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        dst_id, src_id = (id_a, id_b) if radio_a.isChecked() else (id_b, id_a)
 
         reply = QMessageBox.question(
-            self, "Merge by Range",
+            self, "Confirmar Merge Range",
             f"Dentro do range (frames {start_frame + 1}–{end_frame + 1}):\n\n"
-            f"• Copiar coordenadas de ID {src_id} → ID {dst_id}\n"
-            f"• Zerar ID {src_id} nesse range\n\n"
-            f"Fora do range: nenhuma alteração.\n\n"
+            f"• Dados do ID {src_id} → copiados para ID {dst_id} "
+            f"(onde ID {dst_id} for NaN)\n"
+            f"• ID {src_id} → zerado nesse range\n"
+            f"• Fora do range: nenhuma alteração\n\n"
             f"Esta ação pode ser desfeita com Undo.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes,
@@ -1572,34 +1611,41 @@ class ReIDWindow(QMainWindow):
         src_x, src_y = f"p{src_id}_x", f"p{src_id}_y"
         dst_x, dst_y = f"p{dst_id}_x", f"p{dst_id}_y"
 
+        if src_x not in self.df.columns or dst_x not in self.df.columns:
+            QMessageBox.critical(self, "Erro",
+                f"Colunas p{src_id} ou p{dst_id} não encontradas no CSV.")
+            if self.temp_history:
+                self.temp_history.pop()
+            return
+
         frame_mask = (self.df["frame"] >= start_frame) & (self.df["frame"] <= end_frame)
 
-        # Where dst is NaN and src has a value, copy src → dst
         copy_mask = frame_mask & self.df[src_x].notna() & self.df[dst_x].isna()
-        self.df.loc[copy_mask, dst_x] = self.df.loc[copy_mask, src_x]
-        self.df.loc[copy_mask, dst_y] = self.df.loc[copy_mask, src_y]
+        self.df.loc[copy_mask, dst_x] = self.df.loc[copy_mask, src_x].values
+        self.df.loc[copy_mask, dst_y] = self.df.loc[copy_mask, src_y].values
 
-        # Zero out src within range
         self.df.loc[frame_mask, src_x] = np.nan
         self.df.loc[frame_mask, src_y] = np.nan
 
         if self.bboxes_df is not None and not self.field_keypoints_mode:
-            bbox_frame_mask = (
+            bbox_mask = (
                 (self.bboxes_df["frame"] >= start_frame) &
                 (self.bboxes_df["frame"] <= end_frame)
             )
             for suffix in ("_xmin", "_ymin", "_xmax", "_ymax"):
                 sc = f"p{src_id}{suffix}"
                 dc = f"p{dst_id}{suffix}"
-                if sc in self.bboxes_df.columns and dc in self.bboxes_df.columns:
-                    bbox_copy = bbox_frame_mask & self.bboxes_df[sc].notna() & self.bboxes_df[dc].isna()
-                    self.bboxes_df.loc[bbox_copy, dc] = self.bboxes_df.loc[bbox_copy, sc]
-                    self.bboxes_df.loc[bbox_frame_mask, sc] = np.nan
+                if sc not in self.bboxes_df.columns or dc not in self.bboxes_df.columns:
+                    continue
+                bbox_copy = bbox_mask & self.bboxes_df[sc].notna() & self.bboxes_df[dc].isna()
+                self.bboxes_df.loc[bbox_copy, dc] = self.bboxes_df.loc[bbox_copy, sc].values
+                self.bboxes_df.loc[bbox_mask, sc] = np.nan
 
         self._update_plot()
+        n_frames = end_frame - start_frame + 1
         self._flash_status(
             f"Merge Range: ID {src_id} → ID {dst_id} "
-            f"(frames {start_frame + 1}–{end_frame + 1})")
+            f"({n_frames} frames). Undo disponível.")
 
     def _swap_markers(self):
         if self.df is None:

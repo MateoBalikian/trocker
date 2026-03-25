@@ -632,8 +632,9 @@ class GetPixelCoordWindow(QMainWindow):
         if not self.cap or not self.cap.isOpened():
             return
 
-        # Preserva zoom_center sempre que houver zoom ativo, independente de ter itens
-        if self.zoom != 1.0 and self.zoom_center is None:
+        # Sempre atualiza zoom_center a partir da posição atual dos scrollbars.
+        # Isso preserva pan (middle-click drag) entre frames.
+        if self.graphics_scene.items():
             self.zoom_center = self.graphics_view.mapToScene(
                 self.graphics_view.viewport().rect().center())
 
@@ -723,13 +724,14 @@ class GetPixelCoordWindow(QMainWindow):
     def _apply_zoom(self, zoom_level, center=None):
         if not self.graphics_scene.items():
             return
-        self.graphics_view.resetTransform()
-        if center is None:
-            center = self.graphics_view.mapToScene(
-                self.graphics_view.viewport().rect().center())
-        if zoom_level != 1.0:
-            self.graphics_view.scale(zoom_level, zoom_level)
-        self.graphics_view.centerOn(center)
+        # Only re-apply transform when zoom level actually changed — avoids visual jump each frame
+        current_scale = self.graphics_view.transform().m11()
+        if abs(current_scale - zoom_level) > 0.001:
+            self.graphics_view.resetTransform()
+            if zoom_level != 1.0:
+                self.graphics_view.scale(zoom_level, zoom_level)
+        if center is not None:
+            self.graphics_view.centerOn(center)
 
     # ── Navigation & markers ──────────────────────────────────────────────────
 
@@ -766,6 +768,7 @@ class GetPixelCoordWindow(QMainWindow):
         interval = max(1, int(1000 / fps))
         self._play_timer.setInterval(interval)
         if self._playing:
+            self._play_timer.stop()
             self._play_timer.start()
 
     def _play_tick(self):
