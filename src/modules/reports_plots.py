@@ -74,10 +74,10 @@ class PlayerMetrics:
 
         # --- Layer 1: limited interpolation (max 0.5 s gap) ---
         limit_frames = max(1, int(fps * 0.5))
-        xi = pd.Series(x.astype(float)).interpolate(
-            method="linear", limit=limit_frames, limit_direction="forward").values
-        yi = pd.Series(y.astype(float)).interpolate(
-            method="linear", limit=limit_frames, limit_direction="forward").values
+        _interp_kw = dict(method="linear", limit_direction="forward")
+        df_xy = pd.DataFrame({"x": x.astype(float), "y": y.astype(float)})
+        df_xy = df_xy.interpolate(limit=limit_frames, **_interp_kw)
+        xi, yi = df_xy["x"].values, df_xy["y"].values
 
         # --- Layer 2: remove teleports (speed > physiological limit) ---
         dx_raw    = np.diff(xi)
@@ -88,10 +88,9 @@ class PlayerMetrics:
             bad_frames = np.where(teleport_mask)[0] + 1
             xi[bad_frames] = np.nan
             yi[bad_frames] = np.nan
-            xi = pd.Series(xi).interpolate(
-                method="linear", limit=3, limit_direction="forward").values
-            yi = pd.Series(yi).interpolate(
-                method="linear", limit=3, limit_direction="forward").values
+            df_xy2 = pd.DataFrame({"x": xi, "y": yi})
+            df_xy2 = df_xy2.interpolate(limit=3, **_interp_kw)
+            xi, yi = df_xy2["x"].values, df_xy2["y"].values
 
         # Clean coords kept for distance (no smoothing bias)
         self._xi_clean = xi.copy()
