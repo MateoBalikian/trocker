@@ -20,6 +20,16 @@ class VideosManager(QObject):
 
     # ── Internal helpers ───────────────────────────────────────────────────────
 
+    def _related_dirs(self) -> list:
+        """Directories that store per-video data files (used by rename/delete)."""
+        return [
+            os.path.join(self._project_path, "data", "pixel_coordinates"),
+            os.path.join(self._project_path, "data", "bboxes"),
+            os.path.join(self._project_path, "data", "homography"),
+            os.path.join(self._project_path, "metadata"),
+            os.path.join(self._project_path, "videos"),
+        ]
+
     def _get_duration(self, path: str) -> str:
         if path in self._duration_cache:
             return self._duration_cache[path]
@@ -172,14 +182,7 @@ class VideosManager(QObject):
         new_stem = os.path.splitext(new_name)[0]
         print(f"[renameVideo] old_stem={old_stem!r}  new_stem={new_stem!r}")
 
-        related_dirs = [
-            os.path.join(self._project_path, "data", "pixel_coordinates"),
-            os.path.join(self._project_path, "data", "bboxes"),
-            os.path.join(self._project_path, "data", "homography"),
-            os.path.join(self._project_path, "metadata"),
-            os.path.join(self._project_path, "videos"),
-        ]
-        for d in related_dirs:
+        for d in self._related_dirs():
             if not os.path.isdir(d):
                 print(f"[renameVideo]   skip (no dir): {d}")
                 continue
@@ -206,17 +209,37 @@ class VideosManager(QObject):
 
     @Slot(str)
     def deleteVideo(self, name: str):
+        # Encontra o vídeo (raiz ou subpasta videos/)
         path = os.path.join(self._project_path, name)
         if not os.path.isfile(path):
+            path = os.path.join(self._project_path, "videos", name)
+        if not os.path.isfile(path):
             return
+
         os.remove(path)
-        # Remove cached thumbnail
+
+        # Remove thumbnail
         thumb = os.path.join(
             self._project_path, ".thumbnails",
             os.path.splitext(name)[0] + ".jpg"
         )
         if os.path.exists(thumb):
             os.remove(thumb)
+
+        # Remove todos os arquivos relacionados (CSV, bboxes, homography, metadata)
+        stem = os.path.splitext(name)[0]
+        # base sem _tracked para cobrir arquivos gerados pelo tracker
+        base = stem[:-8] if stem.endswith("_tracked") else stem
+
+        for d in self._related_dirs():
+            if not os.path.isdir(d):
+                continue
+            for fname in os.listdir(d):
+                if fname.startswith(base) or fname.startswith(stem):
+                    fpath = os.path.join(d, fname)
+                    if os.path.isfile(fpath):
+                        os.remove(fpath)
+
         self._duration_cache.pop(path, None)
         self._thumbnail_cache.pop(path, None)
         if self._active_video == name:

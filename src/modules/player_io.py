@@ -54,12 +54,14 @@ def save_player_data(project_path: str, video_path: str, data: dict) -> None:
     if not path:
         return
     existing = load_player_data(project_path, video_path)
-    merged = {}
+    # Start from ALL existing athletes (load_player_data guarantees normalized format)
+    merged = {str(mid): dict(profile) for mid, profile in existing.items()}
+    # Overwrite only the athletes present in data
     for mid, profile in data.items():
-        mid_int = int(mid)
-        ex = existing.get(mid_int, {})
-        merged[str(mid_int)] = {
-            "name":   profile.get("name",   ex.get("name",   f"p{mid_int}")),
+        mid_str = str(int(mid))
+        ex = merged.get(mid_str, {})
+        merged[mid_str] = {
+            "name":   profile.get("name",   ex.get("name",   f"p{mid}")),
             "age":    profile.get("age",    ex.get("age")),
             "sex":    profile.get("sex",    ex.get("sex")),
             "weight": profile.get("weight", ex.get("weight")),

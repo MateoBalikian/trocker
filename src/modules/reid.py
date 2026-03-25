@@ -16,10 +16,81 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QFileDialog, QMessageBox, QApplication, QLabel, QSizePolicy,
     QListWidget, QListWidgetItem, QSpinBox, QDialog, QButtonGroup,
-    QRadioButton, QSlider, QGraphicsView, QGraphicsScene, QGroupBox
+    QRadioButton, QSlider, QGraphicsView, QGraphicsScene, QGroupBox, QFrame
 )
 from PySide6.QtCore import Qt, Signal, QRect, QTimer, QPointF
 from PySide6.QtGui import QPainter, QColor, QPen, QBrush, QImage, QPixmap, QFont
+
+
+# =============================================================================
+# KALMAN FILTER UTILITY
+# =============================================================================
+
+def _detect_markers_x_only(df):
+    """Returns sorted marker IDs from _x columns only (pixel-coordinate CSVs)."""
+    return sorted({int(c[1:-2]) for c in df.columns
+                   if c.startswith("p") and c.endswith("_x")})
+
+
+_KALMAN_R = 4.0   # measurement noise variance (pixels²)
+_KALMAN_Q = 0.8   # process noise variance (pixels²)
+# R small  = trust measurements more (less smoothing)
+# Q large  = accept rapid direction changes (preserves Yo-Yo reversals)
+
+
+def apply_kalman_filter_to_df(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Applies a 1D Kalman filter independently to x and y of each marker.
+    Removes bounding-box jitter while preserving real athlete movement.
+    Returns a new DataFrame with filtered coordinates.
+
+    Model: constant position with small process noise.
+    - R=4.0 (measurement noise): how much we distrust the tracker frame-to-frame
+    - Q=0.8 (process noise):     how much the athlete actually accelerates per frame
+    Tuned for athlete tracking on a fixed camera.
+    """
+    df_out = df.copy()
+    marker_ids = _detect_markers_x_only(df)
+
+    for mid in marker_ids:
+        x_col, y_col = f"p{mid}_x", f"p{mid}_y"
+        if x_col not in df_out.columns:
+            continue
+
+        for col in (x_col, y_col):
+            vals = df_out[col].values.astype(float)
+
+            R = _KALMAN_R
+            Q = _KALMAN_Q
+
+            n = len(vals)
+            filtered = np.full(n, np.nan)
+
+            first_valid = next((i for i, v in enumerate(vals) if not np.isnan(v)), None)
+            if first_valid is None:
+                continue
+
+            x_est = vals[first_valid]
+            p_est = R
+
+            for i in range(first_valid, n):
+                v = vals[i]
+                if np.isnan(v):
+                    # No measurement — propagate with growing uncertainty
+                    p_est += Q
+                    filtered[i] = x_est
+                    continue
+                # Predict
+                p_pred = p_est + Q
+                # Update
+                K = p_pred / (p_pred + R)
+                x_est = x_est + K * (v - x_est)
+                p_est = (1 - K) * p_pred
+                filtered[i] = x_est
+
+            df_out[col] = filtered
+
+    return df_out
 
 
 # =============================================================================
@@ -610,6 +681,7 @@ class ReIDWindow(QMainWindow):
             ("btn_delete_marker", "Delete Marker",    "danger",  self._delete_markers),
             ("btn_undo",          "Undo",             "",        self._undo),
             ("btn_smooth",        "Smooth",           "success", self._smooth_trajectories),
+            ("btn_kalman",        "Kalman Filter",    "primary", self._apply_kalman),
             ("btn_save",          "Update / Close",   "success", self._update_and_close),
         ]:
             btn = QPushButton(label)
@@ -622,99 +694,50 @@ class ReIDWindow(QMainWindow):
 
         main_layout.addWidget(center, stretch=2)
 
-        # ── Right panel: mini video player ────────────────────────────────────
-        right = QGroupBox("VIDEO PREVIEW")
-        right.setFixedWidth(380)
+        # ── Right panel: tools + auto-detect ────────────────────────────────
+        right = QWidget()
+        right.setFixedWidth(260)
+        right.setStyleSheet("background-color: #161621; border-left: 1px solid #222230;")
         right_layout = QVBoxLayout(right)
-        right_layout.setContentsMargins(10, 16, 10, 12)
-        right_layout.setSpacing(8)
+        right_layout.setContentsMargins(12, 16, 12, 12)
+        right_layout.setSpacing(10)
 
-        # Video display
-        self.video_view = QGraphicsView()
-        self.video_view.setMinimumHeight(300)
-        self.video_view.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.video_view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.video_view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.video_scene = QGraphicsScene()
-        self.video_view.setScene(self.video_scene)
-        right_layout.addWidget(self.video_view, stretch=1)
+        # Título
+        lbl_title = QLabel("TOOLS")
+        lbl_title.setStyleSheet(
+            "color: #6868A0; font-size: 10px; font-weight: bold; letter-spacing: 1.5px;")
+        right_layout.addWidget(lbl_title)
 
-        # Frame label
-        self.video_frame_label = QLabel("Frame: —")
-        self.video_frame_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.video_frame_label.setStyleSheet(
-            "color: #EEEEF8; font-weight: bold; font-size: 11px; padding: 2px 0;")
-        right_layout.addWidget(self.video_frame_label)
+        # Botão expandir player
+        self.btn_expand_player = QPushButton("⛶  Expandir Player")
+        self.btn_expand_player.clicked.connect(self._open_expanded_player)
+        right_layout.addWidget(self.btn_expand_player)
 
-        # Video slider
-        self.video_slider = QSlider(Qt.Orientation.Horizontal)
-        self.video_slider.setEnabled(False)
-        self.video_slider.valueChanged.connect(self._on_video_slider_changed)
-        right_layout.addWidget(self.video_slider)
+        # Separador
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setStyleSheet("color: #222230;")
+        right_layout.addWidget(sep)
 
-        # Play controls
-        play_row = QHBoxLayout()
-        play_row.setSpacing(4)
-        self.btn_prev_frame = QPushButton("◀")
-        self.btn_prev_frame.setFixedWidth(36)
-        self.btn_prev_frame.setToolTip("Previous frame")
-        self.btn_prev_frame.clicked.connect(self._video_prev)
+        # Painel de sugestões automáticas
+        lbl_suggestions = QLabel("AUTO-DETECT IDs")
+        lbl_suggestions.setStyleSheet(
+            "color: #6868A0; font-size: 10px; font-weight: bold; letter-spacing: 1.5px;")
+        right_layout.addWidget(lbl_suggestions)
 
-        self.btn_play_reid = QPushButton("▶")
-        self.btn_play_reid.setFixedWidth(52)
-        self.btn_play_reid.setProperty("role", "primary")
-        self.btn_play_reid.clicked.connect(self._toggle_video_play)
+        self.suggestions_list = QListWidget()
+        self.suggestions_list.setStyleSheet("""
+            QListWidget { background-color: #0D0D14; border: 1px solid #222230; border-radius: 6px; }
+            QListWidget::item { padding: 6px 8px; border-bottom: 1px solid #1A1A28; color: #A0A0C0; font-size: 10px; }
+            QListWidget::item:hover { background-color: #1D1D2C; }
+        """)
+        right_layout.addWidget(self.suggestions_list, stretch=1)
 
-        self.btn_next_frame = QPushButton("▶|")
-        self.btn_next_frame.setFixedWidth(36)
-        self.btn_next_frame.setToolTip("Next frame")
-        self.btn_next_frame.clicked.connect(self._video_next)
-
-        self.video_speed_spin = QSpinBox()
-        self.video_speed_spin.setRange(1, 60)
-        self.video_speed_spin.setValue(10)
-        self.video_speed_spin.setSuffix(" fps")
-        self.video_speed_spin.setFixedWidth(72)
-        self.video_speed_spin.valueChanged.connect(self._update_video_play_speed)
-
-        speed_lbl = QLabel("Speed:")
-        speed_lbl.setStyleSheet("color: #6868A0; font-size: 11px;")
-
-        play_row.addWidget(self.btn_prev_frame)
-        play_row.addWidget(self.btn_play_reid)
-        play_row.addWidget(self.btn_next_frame)
-        play_row.addStretch()
-        play_row.addWidget(speed_lbl)
-        play_row.addWidget(self.video_speed_spin)
-        right_layout.addLayout(play_row)
-
-        # Overlay + Jump row
-        overlay_row = QHBoxLayout()
-        overlay_row.setSpacing(6)
-        self.btn_toggle_overlay = QPushButton("Markers ON")
-        self.btn_toggle_overlay.setCheckable(True)
-        self.btn_toggle_overlay.setChecked(True)
-        self.btn_toggle_overlay.setProperty("role", "success")
-        self.btn_toggle_overlay.clicked.connect(self._update_video_display)
-        overlay_row.addWidget(self.btn_toggle_overlay)
-
-        self.btn_jump_to_frame = QPushButton("Jump to Range")
-        self.btn_jump_to_frame.setToolTip("Show the first frame of the selected range")
-        self.btn_jump_to_frame.clicked.connect(self._jump_to_range_start)
-        overlay_row.addWidget(self.btn_jump_to_frame)
-        right_layout.addLayout(overlay_row)
-
-        btn_expand = QPushButton("⛶  Expandir Player")
-        btn_expand.clicked.connect(self._open_expanded_player)
-        right_layout.addWidget(btn_expand)
-
-        # Marker info label
-        self.video_marker_info = QLabel("")
-        self.video_marker_info.setWordWrap(True)
-        self.video_marker_info.setStyleSheet(
-            "color: #6868A0; font-size: 11px; padding: 6px 4px;"
-            "background-color: #161621; border-radius: 6px; border: 1px solid #222230;")
-        right_layout.addWidget(self.video_marker_info)
+        self.suggestions_info = QLabel("")
+        self.suggestions_info.setWordWrap(True)
+        self.suggestions_info.setStyleSheet(
+            "color: #6868A0; font-size: 10px; padding: 4px;")
+        right_layout.addWidget(self.suggestions_info)
 
         main_layout.addWidget(right)
         self.canvas.mpl_connect("key_press_event", self._on_key)
@@ -748,6 +771,199 @@ class ReIDWindow(QMainWindow):
 
         # Init mini-player se tiver vídeo
         self._init_video_player()
+
+        # Popula painel de sugestões automáticas
+        self._populate_suggestions()
+
+    # ── Auto-detect ID groups ──────────────────────────────────────────────
+
+    def _auto_detect_id_groups(self):
+        """
+        Detecta automaticamente quais IDs provavelmente sao o mesmo jogador.
+        Calibrado com dados reais: dist < 30px separa corretos de errados.
+        Usa tambem vetor de velocidade e penalidade por area congestionada.
+        """
+        if self.df is None or not self.all_markers:
+            return []
+
+        fps = 24.0
+        if self._cap is not None and self._cap.isOpened():
+            fps = self._cap.get(cv2.CAP_PROP_FPS) or 24.0
+
+        max_gap_frames = int(fps * 3)
+        max_dist       = 30   # px — calibrado nos dados reais
+
+        # Coleta info de cada marker
+        marker_info = {}
+        for mid in self.all_markers:
+            x_col, y_col = f"p{mid}_x", f"p{mid}_y"
+            if x_col not in self.df.columns:
+                continue
+            valid = self.df[self.df[x_col].notna()]
+            if valid.empty:
+                continue
+            x = valid[x_col].values.astype(float)
+            y = valid[y_col].values.astype(float)
+            frames = valid["frame"].values
+            n = min(20, len(x))
+            vx_end   = (x[-1]  - x[-n])  / n
+            vy_end   = (y[-1]  - y[-n])  / n
+            vx_start = (x[n-1] - x[0])   / n
+            vy_start = (y[n-1] - y[0])   / n
+            marker_info[mid] = {
+                "first_frame": int(frames[0]),
+                "last_frame":  int(frames[-1]),
+                "first_x": float(x[0]),   "first_y": float(y[0]),
+                "last_x":  float(x[-1]),  "last_y":  float(y[-1]),
+                "vx_end": vx_end, "vy_end": vy_end,
+                "vx_start": vx_start, "vy_start": vy_start,
+                "x": x, "y": y, "frames": frames,
+            }
+
+        pairs = []
+        mids  = list(marker_info.keys())
+
+        for i, a in enumerate(mids):
+            for b in mids[i+1:]:
+                ia, ib = marker_info[a], marker_info[b]
+
+                # Sem sobreposicao temporal
+                if not (ia["last_frame"] < ib["first_frame"] or
+                        ib["last_frame"] < ia["first_frame"]):
+                    continue
+
+                # Quem vem primeiro
+                if ia["last_frame"] < ib["first_frame"]:
+                    first, second, id_f, id_s = ia, ib, a, b
+                else:
+                    first, second, id_f, id_s = ib, ia, b, a
+
+                gap = second["first_frame"] - first["last_frame"]
+                if gap > max_gap_frames:
+                    continue
+
+                dist = ((first["last_x"] - second["first_x"])**2 +
+                        (first["last_y"] - second["first_y"])**2) ** 0.5
+                if dist > max_dist:
+                    continue
+
+                # Vetor de velocidade: cos entre fim do primeiro e inicio do segundo
+                dot   = (first["vx_end"]   * second["vx_start"] +
+                         first["vy_end"]   * second["vy_start"])
+                mag_a = (first["vx_end"]**2  + first["vy_end"]**2)  ** 0.5
+                mag_b = (second["vx_start"]**2 + second["vy_start"]**2) ** 0.5
+                vel_cos = dot / (mag_a * mag_b) if mag_a > 0 and mag_b > 0 else 0.0
+
+                # Penalidade se outro marker estava proximo na transicao
+                transition_frame = first["last_frame"]
+                tx, ty = first["last_x"], first["last_y"]
+                min_other_dist = float("inf")
+                for mid2, im2 in marker_info.items():
+                    if mid2 in (id_f, id_s):
+                        continue
+                    if im2["first_frame"] <= transition_frame <= im2["last_frame"]:
+                        idx = int(np.searchsorted(im2["frames"], transition_frame))
+                        if idx < len(im2["x"]):
+                            d2 = ((tx - im2["x"][idx])**2 +
+                                  (ty - im2["y"][idx])**2) ** 0.5
+                            min_other_dist = min(min_other_dist, d2)
+
+                crowded = (min_other_dist != float("inf") and
+                           min_other_dist < dist * 2)
+
+                # Score: menor = melhor
+                score = ((dist / max_dist) * 0.5 +
+                         (gap / max_gap_frames) * 0.3 +
+                         (-vel_cos * 0.1) +
+                         (0.2 if crowded else 0.0))
+
+                confidence = ("✓ Alta"  if score < 0.35 else
+                              "⚠ Média" if score < 0.65 else
+                              "✗ Baixa")
+
+                pairs.append({
+                    "first": id_f, "second": id_s,
+                    "gap": gap, "dist": dist,
+                    "vel_cos": vel_cos, "crowded": crowded,
+                    "score": score, "confidence": confidence,
+                })
+
+        pairs.sort(key=lambda p: p["score"])
+
+        # Union-Find — agrupa em cadeias
+        parent = {mid: mid for mid in mids}
+
+        def find(x):
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        def union(x, y):
+            parent[find(x)] = find(y)
+
+        used_pairs = []
+        for p in pairs:
+            if find(p["first"]) != find(p["second"]):
+                union(p["first"], p["second"])
+                used_pairs.append(p)
+
+        groups = {}
+        for mid in mids:
+            groups.setdefault(find(mid), []).append(mid)
+
+        suggestions = []
+        for members in groups.values():
+            if len(members) < 2:
+                continue
+            members.sort(key=lambda m: marker_info[m]["first_frame"])
+            group_pairs = [p for p in used_pairs
+                           if p["first"] in members and p["second"] in members]
+            avg_score = (sum(p["score"] for p in group_pairs) / len(group_pairs)
+                         if group_pairs else 1.0)
+            confidence = ("✓ Alta"  if avg_score < 0.35 else
+                          "⚠ Média" if avg_score < 0.65 else
+                          "✗ Baixa")
+            suggestions.append({
+                "ids": members, "pairs": group_pairs,
+                "confidence": confidence, "avg_score": avg_score,
+            })
+
+        suggestions.sort(key=lambda s: s["avg_score"])
+        return suggestions
+
+    def _populate_suggestions(self):
+        """Popula o painel de sugestões automáticas de IDs."""
+        if not hasattr(self, "suggestions_list"):
+            return
+        self.suggestions_list.clear()
+        suggestions = self._auto_detect_id_groups()
+        if not suggestions:
+            self.suggestions_info.setText("Nenhuma troca de ID detectada.")
+            return
+
+        self.suggestions_info.setText(
+            f"{len(suggestions)} grupo(s) detectado(s).\n"
+            "Selecione os IDs na lista lateral e use Merge para corrigir."
+        )
+
+        for s in suggestions:
+            ids_str = " → ".join(str(i) for i in s["ids"])
+            pairs_detail = []
+            for p in s["pairs"]:
+                pairs_detail.append(
+                    f"  {p['first']}→{p['second']}: gap={p['gap']}f dist={p['dist']:.0f}px"
+                )
+            detail = "\n".join(pairs_detail)
+            text = f"{s['confidence']}  IDs: {ids_str}\n{detail}"
+            item = QListWidgetItem(text)
+            if "Alta" in s["confidence"]:
+                item.setForeground(QColor("#2DD480"))
+            elif "Média" in s["confidence"]:
+                item.setForeground(QColor("#FF9830"))
+            else:
+                item.setForeground(QColor("#FF4560"))
+            self.suggestions_list.addItem(item)
 
     def _load_bboxes(self, bboxes_path=None, from_data=None):
         """Carrega bboxes de dados em memória ou de arquivo."""
@@ -1002,24 +1218,27 @@ class ReIDWindow(QMainWindow):
 
         path = self.video_path
         if not path or not os.path.isfile(path):
-            self.video_frame_label.setText("No video found")
+            if hasattr(self, "video_frame_label"):
+                self.video_frame_label.setText("No video found")
             return
 
         self._cap = cv2.VideoCapture(path)
         if not self._cap.isOpened():
-            self.video_frame_label.setText("Could not open video")
+            if hasattr(self, "video_frame_label"):
+                self.video_frame_label.setText("Could not open video")
             self._cap = None
             return
 
         self._total_frames = int(self._cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self._current_frame = 0
-        self.video_slider.setMaximum(self._total_frames - 1)
-        self.video_slider.setEnabled(True)
+        if hasattr(self, "video_slider"):
+            self.video_slider.setMaximum(self._total_frames - 1)
+            self.video_slider.setEnabled(True)
         self._update_video_display()
 
     def _update_video_display(self):
         """Renderiza o frame atual no mini-player com redimensionamento correto."""
-        if self._cap is None or not self._cap.isOpened():
+        if not hasattr(self, "video_view") or self._cap is None or not self._cap.isOpened():
             return
 
         self._cap.set(cv2.CAP_PROP_POS_FRAMES, self._current_frame)
@@ -1042,7 +1261,8 @@ class ReIDWindow(QMainWindow):
         pixmap    = QPixmap.fromImage(qimg)
 
         # Sobrepõe markers se habilitado (já no tamanho redimensionado)
-        if self.btn_toggle_overlay.isChecked() and self.df is not None:
+        show_ov = (not hasattr(self, "btn_toggle_overlay") or self.btn_toggle_overlay.isChecked())
+        if show_ov and self.df is not None:
             pixmap = self._draw_markers_on_pixmap(pixmap, self._current_frame, scale)
 
         self.video_scene.clear()
@@ -1099,6 +1319,8 @@ class ReIDWindow(QMainWindow):
 
     def _update_video_marker_info(self):
         """Mostra quais markers estão presentes no frame atual."""
+        if not hasattr(self, "video_marker_info"):
+            return
         if self.df is None:
             self.video_marker_info.setText("")
             return
@@ -1140,16 +1362,21 @@ class ReIDWindow(QMainWindow):
             return
         self._playing = not self._playing
         if self._playing:
-            self.btn_play_reid.setText("⏸")
+            if hasattr(self, "btn_play_reid"):
+                self.btn_play_reid.setText("⏸")
             self._update_video_play_speed()
             self._play_timer.start()
         else:
             self._playing = False
             self._play_timer.stop()
-            self.btn_play_reid.setText("▶")
+            if hasattr(self, "btn_play_reid"):
+                self.btn_play_reid.setText("▶")
 
     def _update_video_play_speed(self):
-        fps = self.video_speed_spin.value()
+        if hasattr(self, "video_speed_spin"):
+            fps = self.video_speed_spin.value()
+        else:
+            fps = 10
         self._play_timer.setInterval(max(1, int(1000 / fps)))
 
     def _play_tick(self):
@@ -1464,12 +1691,40 @@ class ReIDWindow(QMainWindow):
         self._flash_status(
             f"Smooth aplicado — janela={window} frames ({window/fps:.2f}s) @ {fps:.0f}fps")
 
+    def _apply_kalman(self):
+        """Aplica filtro de Kalman nas coordenadas de pixel para remover jitter de tracking."""
+        if self.df is None:
+            QMessageBox.warning(self, "No Data", "Carregue um CSV primeiro.")
+            return
+
+        reply = QMessageBox.question(
+            self, "Kalman Filter",
+            "Aplicar filtro de Kalman em todas as coordenadas de pixel?\n\n"
+            "Remove jitter de bounding box preservando o movimento real.\n"
+            "Esta ação pode ser desfeita com Undo.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        self._snapshot()
+
+        try:
+            self.df = apply_kalman_filter_to_df(self.df)
+            self._update_plot()
+            self._flash_status("✓ Kalman Filter aplicado. Use Undo para reverter.")
+        except Exception as e:
+            if self.temp_history:
+                self.df = self.temp_history.pop()
+            QMessageBox.critical(self, "Erro", f"Falha ao aplicar Kalman Filter:\n{e}")
+
     def _open_expanded_player(self):
         """Abre player interativo com slider, play/pause e navegação frame a frame."""
         if self._cap is None or not self._cap.isOpened():
             return
 
-        show_overlay = self.btn_toggle_overlay.isChecked() and self.df is not None
+        show_overlay = self.df is not None  # overlay sempre ativo por padrão
         fps = self._cap.get(cv2.CAP_PROP_FPS) or 24.0
         total = self._total_frames
         start_frame = self._current_frame
@@ -1684,4 +1939,42 @@ class ReidManager(QObject):
             video_path=video_path,
             project_path=project_path,
         )
+        # Conecta data_ready para salvar diretamente no CSV do projeto
+        self._window.data_ready.connect(self._on_data_ready)
         self._window.show()
+
+    def _on_data_ready(self, df, bboxes_df):
+        """Salva o CSV editado diretamente no disco quando aberto pelo manager."""
+        import pandas as pd
+        import os
+        import numpy as np
+
+        video_path   = self._videos_manager.activeVideoPath
+        project_path = self._videos_manager.activeProjectPath
+        if not video_path or not project_path or df is None:
+            return
+
+        stem = os.path.splitext(os.path.basename(video_path))[0]
+        base = stem[:-8] if stem.endswith("_tracked") else stem
+
+        # Salva CSV de pixel coordinates
+        pixel_dir = os.path.join(project_path, "data", "pixel_coordinates")
+        os.makedirs(pixel_dir, exist_ok=True)
+        csv_path = os.path.join(pixel_dir, f"{base}_tracked.csv")
+        try:
+            df.to_csv(csv_path, index=False)
+        except Exception as e:
+            print(f"[ReidManager] Erro ao salvar CSV: {e}")
+            return
+
+        # Salva bboxes se existir
+        if bboxes_df is not None:
+            bboxes_dir = os.path.join(project_path, "data", "bboxes")
+            os.makedirs(bboxes_dir, exist_ok=True)
+            bboxes_path = os.path.join(bboxes_dir, f"{base}_bboxes.csv")
+            try:
+                bboxes_df.to_csv(bboxes_path, index=False)
+            except Exception as e:
+                print(f"[ReidManager] Erro ao salvar bboxes: {e}")
+
+        print(f"[ReidManager] Salvo: {csv_path}")

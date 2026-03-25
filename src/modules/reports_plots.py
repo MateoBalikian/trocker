@@ -59,6 +59,10 @@ _LEGEND_KW = dict(fontsize=8, facecolor="white", edgecolor="#CCCCCC", labelcolor
 # PLAYER METRICS ENGINE
 # =============================================================================
 
+# Physiological max — above this is a tracking artefact
+_MAX_SPEED_MS = 10.0   # 36 km/h
+
+
 class PlayerMetrics:
     """Computes all metrics for one player from homography coordinates."""
 
@@ -68,40 +72,74 @@ class PlayerMetrics:
         self.name      = name or f"p{marker_id}"
         self.fps       = fps
 
+        # --- Layer 1: limited interpolation (max 0.5 s gap) ---
+        limit_frames = max(1, int(fps * 0.5))
+        xi = pd.Series(x.astype(float)).interpolate(
+            method="linear", limit=limit_frames, limit_direction="forward").values
+        yi = pd.Series(y.astype(float)).interpolate(
+            method="linear", limit=limit_frames, limit_direction="forward").values
+
+        # --- Layer 2: remove teleports (speed > physiological limit) ---
+        dx_raw    = np.diff(xi)
+        dy_raw    = np.diff(yi)
+        speed_raw = np.sqrt(dx_raw**2 + dy_raw**2) * fps  # m/s
+        teleport_mask = speed_raw > _MAX_SPEED_MS
+        if np.any(teleport_mask):
+            bad_frames = np.where(teleport_mask)[0] + 1
+            xi[bad_frames] = np.nan
+            yi[bad_frames] = np.nan
+            xi = pd.Series(xi).interpolate(
+                method="linear", limit=3, limit_direction="forward").values
+            yi = pd.Series(yi).interpolate(
+                method="linear", limit=3, limit_direction="forward").values
+
+        # Clean coords kept for distance (no smoothing bias)
+        self._xi_clean = xi.copy()
+        self._yi_clean = yi.copy()
+
+        # --- Layer 3: Savitzky-Golay for speed/accel only ---
         window    = max(5, int(round(fps * 0.5)) | 1)
         polyorder = min(3, window - 1)
-        xi = pd.Series(x.astype(float)).interpolate(method="linear", limit_direction="both").values
-        yi = pd.Series(y.astype(float)).interpolate(method="linear", limit_direction="both").values
-        self.x = savgol_filter(xi, window_length=window, polyorder=polyorder)
-        self.y = savgol_filter(yi, window_length=window, polyorder=polyorder)
+        xi_full = pd.Series(xi).ffill().bfill().values
+        yi_full = pd.Series(yi).ffill().bfill().values
+        self.x = savgol_filter(xi_full, window_length=window, polyorder=polyorder)
+        self.y = savgol_filter(yi_full, window_length=window, polyorder=polyorder)
 
         self._compute()
 
     def _compute(self):
+        # --- Distance: clean raw coords (preserves real reversals) ---
+        dx_clean = np.diff(self._xi_clean)
+        dy_clean = np.diff(self._yi_clean)
+        dist_per_frame = np.sqrt(dx_clean**2 + dy_clean**2)
+        self.total_distance = float(np.nansum(dist_per_frame))
+        self.dist_per_frame = dist_per_frame
+
+        # --- Speed/accel: smoothed coords ---
         dx = np.diff(self.x)
         dy = np.diff(self.y)
-        dist_per_frame = np.sqrt(dx**2 + dy**2)
-
-        self.speed_ms  = dist_per_frame * self.fps
+        dist_smooth    = np.sqrt(dx**2 + dy**2)
+        self.speed_ms  = dist_smooth * self.fps
         self.speed_kmh = self.speed_ms * 3.6
         self.accel     = np.diff(self.speed_ms) * self.fps
 
+        # --- Speed zones ---
         self.zone_times = {}
         for lo, hi, color, label in SPEED_ZONES:
             mask = (self.speed_kmh >= lo) & (self.speed_kmh < hi)
             self.zone_times[label] = float(np.sum(mask) / self.fps)
 
-        self.total_distance = float(np.nansum(dist_per_frame))
-        self.total_time     = float(len(self.x) / self.fps)
-        self.avg_speed_kmh  = float(np.nanmean(self.speed_kmh))
-        self.max_speed_kmh  = float(np.nanmax(self.speed_kmh))
-        self.avg_accel      = float(np.nanmean(self.accel))
-        self.max_accel      = float(np.nanmax(self.accel))
-        self.max_decel      = float(np.nanmin(self.accel))
+        # --- Summary metrics ---
+        self.total_time    = float(len(self.x) / self.fps)
+        self.avg_speed_kmh = float(np.nanmean(self.speed_kmh))
+        # p95 — eliminates residual noise spikes
+        self.max_speed_kmh = float(np.nanpercentile(self.speed_kmh, 95))
+        self.avg_accel     = float(np.nanmean(self.accel))
+        self.max_accel     = float(np.nanmax(self.accel))
+        self.max_decel     = float(np.nanmin(self.accel))
 
         n = len(self.speed_ms)
-        self.time_axis      = np.arange(n) / self.fps
-        self.dist_per_frame = dist_per_frame
+        self.time_axis = np.arange(n) / self.fps
 
 
 # =============================================================================
