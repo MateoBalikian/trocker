@@ -632,8 +632,8 @@ class GetPixelCoordWindow(QMainWindow):
         if not self.cap or not self.cap.isOpened():
             return
 
-        # Captura centro do zoom atual antes de limpar a cena
-        if self.zoom_center is None and self.graphics_scene.items():
+        # Preserva zoom_center sempre que houver zoom ativo, independente de ter itens
+        if self.zoom != 1.0 and self.zoom_center is None:
             self.zoom_center = self.graphics_view.mapToScene(
                 self.graphics_view.viewport().rect().center())
 
@@ -752,7 +752,9 @@ class GetPixelCoordWindow(QMainWindow):
         self._playing = not self._playing
         if self._playing:
             self.btn_play.setText("⏸ Pause")
-            self._update_play_speed()
+            fps = self.speed_spin.value()
+            interval = max(1, int(1000 / fps))
+            self._play_timer.setInterval(interval)
             self._play_timer.start()
         else:
             self._playing = False
@@ -763,6 +765,8 @@ class GetPixelCoordWindow(QMainWindow):
         fps = self.speed_spin.value()
         interval = max(1, int(1000 / fps))
         self._play_timer.setInterval(interval)
+        if self._playing:
+            self._play_timer.start()
 
     def _play_tick(self):
         if self.current_frame < self.total_frames - 1:

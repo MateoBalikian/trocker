@@ -777,4 +777,5 @@ class EditVideoManager(QObject):
             video_path=video_path,
             project_path=project_path,
         )
+        self._window.video_saved.connect(self._videos_manager.refreshVideos)
         self._window.show()

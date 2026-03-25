@@ -676,6 +676,7 @@ class ReIDWindow(QMainWindow):
         for attr, label, role, slot in [
             ("btn_fill",          "Fill Gaps",       "primary", self._fill_gaps),
             ("btn_merge",         "Merge",            "",        self._merge_markers),
+            ("btn_merge_range",   "Merge Range",      "",        self._merge_markers_range),
             ("btn_swap",          "Swap",             "",        self._swap_markers),
             ("btn_erase_traj",    "Erase Traj.",      "warning", self._erase_trajectory),
             ("btn_delete_marker", "Delete Marker",    "danger",  self._delete_markers),
@@ -1536,6 +1537,69 @@ class ReIDWindow(QMainWindow):
         self._update_marker_list_widget()
         self._update_plot()
         self._flash_status(f"Merge concluído → marker {target}")
+
+    def _merge_markers_range(self):
+        """
+        Merge dois markers apenas dentro do range selecionado no slider.
+        Copia coordenadas do marker ORIGEM → DESTINO (apenas onde DESTINO é NaN),
+        depois zera ORIGEM no range. Fora do range: sem alterações.
+        """
+        checked = [self.all_markers[i] for i, s in enumerate(self.marker_status) if s]
+        if len(checked) != 2:
+            QMessageBox.warning(self, "Merge Range",
+                "Selecione exatamente 2 markers para o Merge Range.\n"
+                "Use as checkboxes no painel esquerdo.")
+            return
+
+        start_frame, end_frame = self.frames_range.getValues()
+        src_id, dst_id = checked[0], checked[1]
+
+        reply = QMessageBox.question(
+            self, "Merge by Range",
+            f"Dentro do range (frames {start_frame + 1}–{end_frame + 1}):\n\n"
+            f"• Copiar coordenadas de ID {src_id} → ID {dst_id}\n"
+            f"• Zerar ID {src_id} nesse range\n\n"
+            f"Fora do range: nenhuma alteração.\n\n"
+            f"Esta ação pode ser desfeita com Undo.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        self._snapshot()
+
+        src_x, src_y = f"p{src_id}_x", f"p{src_id}_y"
+        dst_x, dst_y = f"p{dst_id}_x", f"p{dst_id}_y"
+
+        frame_mask = (self.df["frame"] >= start_frame) & (self.df["frame"] <= end_frame)
+
+        # Where dst is NaN and src has a value, copy src → dst
+        copy_mask = frame_mask & self.df[src_x].notna() & self.df[dst_x].isna()
+        self.df.loc[copy_mask, dst_x] = self.df.loc[copy_mask, src_x]
+        self.df.loc[copy_mask, dst_y] = self.df.loc[copy_mask, src_y]
+
+        # Zero out src within range
+        self.df.loc[frame_mask, src_x] = np.nan
+        self.df.loc[frame_mask, src_y] = np.nan
+
+        if self.bboxes_df is not None and not self.field_keypoints_mode:
+            bbox_frame_mask = (
+                (self.bboxes_df["frame"] >= start_frame) &
+                (self.bboxes_df["frame"] <= end_frame)
+            )
+            for suffix in ("_xmin", "_ymin", "_xmax", "_ymax"):
+                sc = f"p{src_id}{suffix}"
+                dc = f"p{dst_id}{suffix}"
+                if sc in self.bboxes_df.columns and dc in self.bboxes_df.columns:
+                    bbox_copy = bbox_frame_mask & self.bboxes_df[sc].notna() & self.bboxes_df[dc].isna()
+                    self.bboxes_df.loc[bbox_copy, dc] = self.bboxes_df.loc[bbox_copy, sc]
+                    self.bboxes_df.loc[bbox_frame_mask, sc] = np.nan
+
+        self._update_plot()
+        self._flash_status(
+            f"Merge Range: ID {src_id} → ID {dst_id} "
+            f"(frames {start_frame + 1}–{end_frame + 1})")
 
     def _swap_markers(self):
         if self.df is None:
