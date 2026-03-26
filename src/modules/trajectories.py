@@ -351,8 +351,9 @@ class TrajectoriesWindow(QMainWindow):
             btn.setFixedHeight(28)
             btn.setStyleSheet(
                 f"QPushButton[role='chip'][active='true'] {{"
-                f" border-color: {color}; color: white; background-color: {color}30; }}"
-                f"QPushButton[role='chip'][active='false'] {{ color: {color}; }}")
+                f" border: 2px solid {color}; color: white; background-color: {color}; }}"
+                f"QPushButton[role='chip'][active='false'] {{"
+                f" border: 1px solid {color}60; color: {color}; background-color: transparent; }}")
             btn.clicked.connect(lambda _, m=mid: self._toggle_chip(m))
             self._chips_layout.insertWidget(self._chips_layout.count() - 1, btn)
             self._chip_btns[mid] = btn
