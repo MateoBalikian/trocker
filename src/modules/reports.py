@@ -28,6 +28,25 @@ from .reports_metrics import calc_sprint_count, calc_vo2max, calc_fatigue_index
 
 
 # =============================================================================
+# WHEEL REDIRECT (scroll area fix)
+# =============================================================================
+
+from PySide6.QtCore import QEvent
+
+class _WheelRedirect(QObject):
+    def __init__(self, scroll_area):
+        super().__init__(scroll_area)
+        self._sa = scroll_area
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.Wheel:
+            self._sa.verticalScrollBar().setValue(
+                self._sa.verticalScrollBar().value() -
+                event.angleDelta().y() // 2)
+            return True
+        return False
+
+
+# =============================================================================
 # DARK THEME
 # =============================================================================
 
@@ -203,6 +222,11 @@ class ReportsWindow(QMainWindow):
         self._scroll_layout.addStretch(1)
         self.scroll_area.setWidget(self._scroll_content)
         body_layout.addWidget(self.scroll_area, stretch=1)
+
+        # Redirect wheel events from content area to scroll bar
+        self._wheel_redirect = _WheelRedirect(self.scroll_area)
+        self._scroll_content.installEventFilter(self._wheel_redirect)
+
         root.addWidget(body, stretch=1)
 
     # ── CHIP / PILL TOGGLE ────────────────────────────────────────────────────
@@ -359,6 +383,34 @@ class ReportsWindow(QMainWindow):
         self._chip_btns.clear()
         self._active_mids.clear()
 
+        # Botões All / None no início
+        btn_all = QPushButton("All")
+        btn_all.setFixedHeight(30)
+        btn_all.setFixedWidth(40)
+        btn_all.setStyleSheet(
+            "QPushButton { background: #1D1D2C; color: #A0A0C0; border: 1px solid #222230;"
+            " border-radius: 6px; font-size: 11px; }"
+            "QPushButton:hover { color: #EEEEF8; background: #242438; }")
+        btn_all.clicked.connect(self._select_all_chips)
+        self.chips_layout.insertWidget(0, btn_all)
+
+        btn_none = QPushButton("None")
+        btn_none.setFixedHeight(30)
+        btn_none.setFixedWidth(44)
+        btn_none.setStyleSheet(
+            "QPushButton { background: #1D1D2C; color: #A0A0C0; border: 1px solid #222230;"
+            " border-radius: 6px; font-size: 11px; }"
+            "QPushButton:hover { color: #EEEEF8; background: #242438; }")
+        btn_none.clicked.connect(self._select_none_chips)
+        self.chips_layout.insertWidget(1, btn_none)
+
+        # Separador fino
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.VLine)
+        sep.setStyleSheet("color: #222230;")
+        sep.setFixedWidth(1)
+        self.chips_layout.insertWidget(2, sep)
+
         for i, (mid, p) in enumerate(self.players.items()):
             color = PLAYER_COLORS[i % len(PLAYER_COLORS)]
             btn   = QPushButton(p.name)
@@ -367,13 +419,25 @@ class ReportsWindow(QMainWindow):
             btn.setFixedHeight(30)
             btn.setStyleSheet(
                 f"QPushButton[role='chip'][active='true'] {{"
-                f" border-color: {color}; color: white; background-color: {color}30; }}"
-                f"QPushButton[role='chip'][active='false'] {{ color: {color}; }}")
+                f" border: 2px solid {color}; color: white;"
+                f" background-color: {color}; }}"
+                f"QPushButton[role='chip'][active='false'] {{"
+                f" border: 1px solid {color}60; color: {color};"
+                f" background-color: transparent; }}")
             btn.clicked.connect(lambda _, m=mid: self._toggle_chip(m))
             self.chips_layout.insertWidget(self.chips_layout.count() - 1, btn)
             self._chip_btns[mid] = btn
 
         for mid in self.players:
+            self._toggle_chip(mid)
+
+    def _select_all_chips(self):
+        for mid in list(self.players.keys()):
+            if mid not in self._active_mids:
+                self._toggle_chip(mid)
+
+    def _select_none_chips(self):
+        for mid in list(self._active_mids.copy()):
             self._toggle_chip(mid)
 
     # ── RENDERING ─────────────────────────────────────────────────────────────
@@ -400,6 +464,8 @@ class ReportsWindow(QMainWindow):
         return canvas
 
     def _make_vo2max_widget(self, players: list, protocol_config: dict) -> QWidget:
+        from math import ceil
+        from PySide6.QtWidgets import QGridLayout
         container = QWidget()
         container.setStyleSheet(
             "QWidget { background-color: #161621; border-radius: 10px; }")
@@ -411,8 +477,9 @@ class ReportsWindow(QMainWindow):
         lbl.setStyleSheet("color: #EEEEF8; font-size: 14px; font-weight: bold;")
         layout.addWidget(lbl)
 
-        cards_row = QHBoxLayout()
-        cards_row.setSpacing(10)
+        COLS = 4
+        grid = QGridLayout()
+        grid.setSpacing(10)
         for i, p in enumerate(players):
             profile = {}
             if self.athlete_manager:
@@ -470,10 +537,9 @@ class ReportsWindow(QMainWindow):
                 lbl_warn.setStyleSheet("color: #D97706; font-size: 9px;")
                 card_layout.addWidget(lbl_warn)
 
-            cards_row.addWidget(card)
+            grid.addWidget(card, i // COLS, i % COLS)
 
-        cards_row.addStretch(1)
-        layout.addLayout(cards_row)
+        layout.addLayout(grid)
         return container
 
     def _make_fatigue_widget(self, players: list) -> QWidget:
