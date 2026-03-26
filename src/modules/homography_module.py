@@ -226,7 +226,7 @@ class DraggableGridPoint(QGraphicsEllipseItem):
     def __init__(self, x, y, radius=18, parent_window=None):
         """Ponto arrastável - radius grande para area de clique confortável"""
         super().__init__(x - radius, y - radius, radius * 2, radius * 2)
-        self.visual_radius = 10   # ponto visível maior
+        self.visual_radius = 5   # ponto visível menor (antes 10)
         self.setZValue(10)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
@@ -249,7 +249,7 @@ class DraggableGridPoint(QGraphicsEllipseItem):
         self.visual_circle.setZValue(11)
 
         # Halo externo (anel) para ainda mais visibilidade
-        halo_r = self.visual_radius + 5
+        halo_r = self.visual_radius + 4
         self.halo = QGraphicsEllipseItem(
             x - halo_r, y - halo_r, halo_r * 2, halo_r * 2, self
         )
@@ -289,9 +289,10 @@ class DLTPoint(QGraphicsEllipseItem):
         self.setCursor(Qt.CursorShape.OpenHandCursor)
         
         self.text_item = QGraphicsTextItem(str(point_id + 1), self)
-        self.text_item.setDefaultTextColor(QColor(255, 255, 255))
-        self.text_item.setFont(QFont("Arial", 8, QFont.Weight.Bold))
-        self.text_item.setPos(-8, -8)
+        self.text_item.setDefaultTextColor(QColor(255, 255, 0))  # amarelo — visível sobre vermelho
+        self.text_item.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        # Posiciona fora do círculo (acima e à direita)
+        self.text_item.setPos(8, -18)
         self.text_item.setZValue(16)
         
     def mousePressEvent(self, event):
@@ -340,6 +341,7 @@ class PointSelectorWindow(QMainWindow):
         self.zoom = 1.0
         self.grid_size = 5
         self.current_mode = "grid"
+        self._pan_start = None
         
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
@@ -395,25 +397,25 @@ class PointSelectorWindow(QMainWindow):
         
         left_layout.addSpacing(20)
         
-        self.length_label = QLabel("Length:")
+        self.length_label = QLabel("Field width (in meters):")
         self.length_label.setStyleSheet("font-weight: bold; color: #c0c0c0; font-size: 13px;")
         self.length_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         left_layout.addWidget(self.length_label)
         
         self.length_edit = QLineEdit()
-        self.length_edit.setPlaceholderText("105.0")
+        self.length_edit.setPlaceholderText("68.0")
         self.length_edit.setStyleSheet("QLineEdit { background-color: #ffffff; color: #111111; padding: 5px; border-radius: 3px; font-size: 12px; }")
         left_layout.addWidget(self.length_edit)
         
         left_layout.addSpacing(10)
         
-        self.width_label = QLabel("Width:")
+        self.width_label = QLabel("Field length (in meters):")
         self.width_label.setStyleSheet("font-weight: bold; color: #c0c0c0; font-size: 13px;")
         self.width_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         left_layout.addWidget(self.width_label)
         
         self.width_edit = QLineEdit()
-        self.width_edit.setPlaceholderText("68.0")
+        self.width_edit.setPlaceholderText("105.0")
         self.width_edit.setStyleSheet("QLineEdit { background-color: #ffffff; color: #111111; padding: 5px; border-radius: 3px; font-size: 12px; }")
         left_layout.addWidget(self.width_edit)
         
@@ -545,17 +547,42 @@ class PointSelectorWindow(QMainWindow):
         pass
         
     def eventFilter(self, source, event):
-        if event.type() == event.Type.Wheel:
-            if event.angleDelta().y() > 0:
-                self.zoom_in()
-            else:
-                self.zoom_out()
-            return True
-        elif event.type() == event.Type.MouseButtonPress and self.current_mode == "dlt":
-            if event.button() == Qt.MouseButton.LeftButton:
-                pos = self.view.mapToScene(event.pos())
-                self.handle_dlt_click(pos)
-            return True
+        if source is self.view.viewport():
+            t = event.type()
+            
+            if t == event.Type.Wheel:
+                if event.angleDelta().y() > 0:
+                    self.zoom_in()
+                else:
+                    self.zoom_out()
+                return True
+                
+            elif t == event.Type.MouseButtonPress:
+                if event.button() == Qt.MouseButton.MiddleButton:
+                    self._pan_start = event.pos()
+                    self.view.setCursor(Qt.CursorShape.ClosedHandCursor)
+                    return True
+                elif event.button() == Qt.MouseButton.LeftButton and self.current_mode == "dlt":
+                    pos = self.view.mapToScene(event.pos())
+                    self.handle_dlt_click(pos)
+                    return True
+                    
+            elif t == event.Type.MouseMove:
+                if self._pan_start is not None:
+                    delta = event.pos() - self._pan_start
+                    self._pan_start = event.pos()
+                    self.view.horizontalScrollBar().setValue(
+                        self.view.horizontalScrollBar().value() - delta.x())
+                    self.view.verticalScrollBar().setValue(
+                        self.view.verticalScrollBar().value() - delta.y())
+                    return True
+                    
+            elif t == event.Type.MouseButtonRelease:
+                if event.button() == Qt.MouseButton.MiddleButton:
+                    self._pan_start = None
+                    self.view.setCursor(Qt.CursorShape.ArrowCursor)
+                    return True
+                    
         return super().eventFilter(source, event)
         
     def handle_dlt_click(self, scene_pos):
@@ -723,8 +750,9 @@ class PointSelectorWindow(QMainWindow):
             
     def get_field_dimensions(self):
         try:
-            length = float(self.length_edit.text()) if self.length_edit.text() else 105.0
-            width = float(self.width_edit.text()) if self.width_edit.text() else 68.0
+            # length_edit agora representa width, width_edit representa length
+            width  = float(self.length_edit.text()) if self.length_edit.text() else 68.0
+            length = float(self.width_edit.text())  if self.width_edit.text()  else 105.0
             return length, width
         except ValueError:
             return None, None

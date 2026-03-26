@@ -282,11 +282,12 @@ def open_trigger_zone_viewer(video_path: str, project_path: str, parent=None):
     import pandas as pd
     from PySide6.QtWidgets import (
         QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-        QSlider, QPushButton, QLabel, QApplication
+        QSlider, QPushButton, QLabel, QApplication, QGraphicsScene
     )
     from PySide6.QtCore import Qt, QTimer
     from PySide6.QtGui import QPainter, QColor, QPen, QFont, QPolygon, QImage, QPixmap
     from PySide6.QtCore import QPoint
+    from modules.edit_video import InteractiveFrameView
 
     # ── Pré-requisitos ────────────────────────────────────────────────────
     polygon_px = load_zone(video_path, project_path)
@@ -355,11 +356,15 @@ def open_trigger_zone_viewer(video_path: str, project_path: str, parent=None):
     root.setContentsMargins(0, 0, 0, 0)
     root.setSpacing(0)
 
-    # Label de vídeo
-    lbl_video = QLabel()
-    lbl_video.setAlignment(Qt.AlignmentFlag.AlignCenter)
-    lbl_video.setStyleSheet("background: #000;")
-    root.addWidget(lbl_video, stretch=1)
+    # Label de vídeo (substituído por InteractiveFrameView)
+    scene = QGraphicsScene()
+    view = InteractiveFrameView()
+    view.setScene(scene)
+    view.setStyleSheet("background: #000; border: none;")
+    root.addWidget(view, stretch=1)
+    
+    # Item fixo para evitar recriar pixmaps a todo momento
+    pixmap_item = scene.addPixmap(QPixmap())
 
     # Controles
     ctrl_bar = QWidget()
@@ -397,9 +402,8 @@ def open_trigger_zone_viewer(video_path: str, project_path: str, parent=None):
     ctrl.addWidget(lbl_frame)
     ctrl.addWidget(lbl_zone)
     root.addWidget(ctrl_bar)
-
     # ── Estado ────────────────────────────────────────────────────────────
-    state = {"frame": 0, "playing": False}
+    state = {"frame": 0, "playing": False, "first_render": True}
     timer = QTimer()
     timer.setInterval(max(16, int(1000 / fps_video)))
 
@@ -460,13 +464,11 @@ def open_trigger_zone_viewer(video_path: str, project_path: str, parent=None):
 
         painter.end()
 
-        # Escala para caber no label
-        scaled = pixmap.scaled(
-            lbl_video.width() or w,
-            lbl_video.height() or h,
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation)
-        lbl_video.setPixmap(scaled)
+        pixmap_item.setPixmap(pixmap)
+        if state.get("first_render", True):
+            view.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+            state["first_render"] = False
+
         lbl_frame.setText(f"Frame {frame_idx + 1} / {total_frames}")
 
         slider.blockSignals(True)
