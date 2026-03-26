@@ -250,18 +250,6 @@ class GetPixelCoordWindow(QMainWindow):
         self.btn_play.clicked.connect(self.toggle_play)
         controls.addWidget(self.btn_play)
 
-        speed_lbl = QLabel("Speed:")
-        speed_lbl.setStyleSheet("color: #6868A0; font-size: 11px; margin-left: 6px;")
-        controls.addWidget(speed_lbl)
-
-        self.speed_spin = QSpinBox()
-        self.speed_spin.setRange(1, 60)
-        self.speed_spin.setValue(10)
-        self.speed_spin.setSuffix(" fps")
-        self.speed_spin.setFixedWidth(80)
-        self.speed_spin.valueChanged.connect(self._update_play_speed)
-        controls.addWidget(self.speed_spin)
-
         main_layout.addWidget(toolbar)
 
         # ── HUD bar: active marker info (outside video, never hidden by zoom) ─
@@ -632,8 +620,7 @@ class GetPixelCoordWindow(QMainWindow):
         if not self.cap or not self.cap.isOpened():
             return
 
-        # Sempre atualiza zoom_center a partir da posição atual dos scrollbars.
-        # Isso preserva pan (middle-click drag) entre frames.
+        # Preserva pan entre frames
         if self.graphics_scene.items():
             self.zoom_center = self.graphics_view.mapToScene(
                 self.graphics_view.viewport().rect().center())
@@ -754,29 +741,28 @@ class GetPixelCoordWindow(QMainWindow):
         self._playing = not self._playing
         if self._playing:
             self.btn_play.setText("⏸ Pause")
-            fps = self.speed_spin.value()
-            interval = max(1, int(1000 / fps))
-            self._play_timer.setInterval(interval)
+            self._update_play_speed()
             self._play_timer.start()
         else:
             self._playing = False
             self._play_timer.stop()
             self.btn_play.setText("▶ Play")
 
+    def _set_speed(self, multiplier: float, clicked_btn):
+        self._speed_multiplier = multiplier
+        for btn in self._speed_btns:
+            btn.setChecked(btn is clicked_btn)
+        self._update_play_speed()
+
     def _update_play_speed(self):
-        fps = self.speed_spin.value()
-        interval = max(1, int(1000 / fps))
+        interval = max(1, int(1000 / self.fps)) if self.fps > 0 else 33
         self._play_timer.setInterval(interval)
-        if self._playing:
-            self._play_timer.stop()
-            self._play_timer.start()
 
     def _play_tick(self):
         if self.current_frame < self.total_frames - 1:
             self.current_frame += 1
             self._update_video_frame()
         else:
-            # chegou no final, para
             self.toggle_play()
 
     def eventFilter(self, obj, event):
