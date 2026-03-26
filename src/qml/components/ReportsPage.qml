@@ -186,6 +186,60 @@ Item {
                 }
             }
 
+            Item { width: 1; height: 10 }
+
+            // ── Trajectories card ─────────────────────────────────────────────
+            Rectangle {
+                width: parent.width; height: 80; radius: 12
+                color: trajMouse.containsMouse && hasActiveVideo ? theme.surface2 : theme.surface
+                border.color: theme.border; border.width: 1
+                opacity: hasActiveVideo ? 1.0 : 0.45
+                Behavior on color   { ColorAnimation { duration: 150 } }
+                Behavior on opacity { NumberAnimation { duration: 150 } }
+
+                Row {
+                    anchors.left: parent.left; anchors.leftMargin: 20
+                    anchors.verticalCenter: parent.verticalCenter; spacing: 16
+
+                    Rectangle {
+                        width: 40; height: 40; radius: 10
+                        color: Qt.rgba(66/255, 130/255, 255/255, 0.12)
+                        anchors.verticalCenter: parent.verticalCenter
+                        Text { anchors.centerIn: parent; text: "🗺"; font.pixelSize: 18 }
+                    }
+
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter; spacing: 3
+                        Text {
+                            text: "Trajectories"
+                            font.family: theme.fontBody; font.pixelSize: 13
+                            font.weight: Font.SemiBold; color: theme.textPrimary
+                        }
+                        Text {
+                            text: "Overlaid trajectories, combined heatmap and smoothing filters"
+                            font.family: theme.fontBody; font.pixelSize: 10; color: theme.textMuted
+                        }
+                    }
+                }
+
+                Text {
+                    anchors.right: parent.right; anchors.rightMargin: 20
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "›"; font.pixelSize: 22
+                    color: hasActiveVideo ? theme.accent : theme.textMuted
+                }
+
+                MouseArea {
+                    id: trajMouse
+                    anchors.fill: parent; hoverEnabled: true
+                    cursorShape: hasActiveVideo ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onClicked: {
+                        if (!hasActiveVideo) return
+                        trajectoriesManager.open_tool()
+                    }
+                }
+            }
+
             Item { width: 1; height: 40 }
         }
     }

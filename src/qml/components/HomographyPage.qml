@@ -408,6 +408,34 @@ Item {
                                     }
                                 }
                             }
+
+                            Rectangle {
+                                width: 130; height: 28; radius: 7
+                                color: verHov && hasActiveVideo ? theme.surface3 : theme.surface2
+                                border.color: theme.border; border.width: 1
+                                Behavior on color { ColorAnimation { duration: 120 } }
+                                property bool verHov: false
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: "👁 Ver Zona"
+                                    font.family:    theme.fontBody
+                                    font.pixelSize: 10
+                                    font.weight:    Font.Medium
+                                    color: hasActiveVideo ? theme.textPrimary : theme.textMuted
+                                }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: hasActiveVideo ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                    onEntered:  parent.verHov = true
+                                    onExited:   parent.verHov = false
+                                    onClicked: {
+                                        if (!hasActiveVideo) return
+                                        homographyManager.open_zone_viewer(activeVideoPath, activeProjectPath)
+                                    }
+                                }
+                            }
                         }
                     }
                 }

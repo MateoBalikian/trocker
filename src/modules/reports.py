@@ -11,7 +11,6 @@ matplotlib.use("QtAgg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from matplotlib.gridspec import GridSpec
 
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
@@ -23,7 +22,7 @@ from PySide6.QtGui import QColor
 from .reports_plots import (
     PlayerMetrics, MPL_LIGHT, PLAYER_COLORS, SPEED_ZONES, _LEGEND_KW,
     plot_speed_over_time, plot_accel_over_time, plot_distance_over_time,
-    plot_bar_comparison, plot_zone_bars, plot_trajectory, plot_heatmap, _style_ax,
+    plot_bar_comparison, plot_zone_bars, _style_ax,
 )
 from .reports_metrics import calc_sprint_count, calc_vo2max, calc_fatigue_index
 
@@ -78,8 +77,6 @@ _METRICS = {
         ("avg_speed",       "Velocidade Média"),
         ("acceleration",    "Aceleração no Tempo"),
         ("intensity_zones", "Zonas de Intensidade"),
-        ("trajectories",    "Trajetórias"),
-        ("heatmap",         "Heatmap"),
         ("sprint_count",    "Contagem de Sprints"),
     ],
     "FISIOLÓGICO": [
@@ -402,26 +399,7 @@ class ReportsWindow(QMainWindow):
         canvas.setMinimumHeight(320)
         return canvas
 
-    def _make_grid_canvas(self, players: list, plot_fn, figsize_per=(5, 4)) -> QWidget:
-        n    = len(players)
-        cols = min(4, n)
-        rows = (n + cols - 1) // cols
-        w    = figsize_per[0] * cols
-        h    = figsize_per[1] * rows
-        with plt.rc_context(MPL_LIGHT):
-            fig = Figure(figsize=(w, h), facecolor="white")
-            gs  = GridSpec(rows, cols, figure=fig,
-                           hspace=0.4, wspace=0.3,
-                           left=0.05, right=0.97, top=0.93, bottom=0.08)
-            for i, p in enumerate(players):
-                ax = fig.add_subplot(gs[i // cols, i % cols])
-                plot_fn(p, ax, field_length=self.field_length,
-                        field_width=self.field_width)
-        canvas = FigureCanvas(fig)
-        canvas.setMinimumHeight(max(320, 320 * rows))
-        return canvas
-
-    def _make_vo2max_widget(self, players: list) -> QWidget:
+    def _make_vo2max_widget(self, players: list, protocol_config: dict) -> QWidget:
         container = QWidget()
         container.setStyleSheet(
             "QWidget { background-color: #161621; border-radius: 10px; }")
@@ -443,8 +421,15 @@ class ReportsWindow(QMainWindow):
                         self.project_path, self.video_path, p.marker_id)
                 except Exception:
                     pass
-            result = calc_vo2max(p.max_speed_kmh, profile.get("age"), profile.get("sex"))
-            color  = PLAYER_COLORS[i % len(PLAYER_COLORS)]
+            result = calc_vo2max(
+                total_distance_m  = p.total_distance,
+                age               = profile.get("age"),
+                sex               = profile.get("sex"),
+                protocol          = protocol_config["protocol"],
+                endurance_level   = protocol_config.get("level"),
+                endurance_shuttle = protocol_config.get("shuttle"),
+            )
+            color = PLAYER_COLORS[i % len(PLAYER_COLORS)]
 
             card = QWidget()
             card.setStyleSheet(
@@ -458,7 +443,8 @@ class ReportsWindow(QMainWindow):
             lbl_name.setStyleSheet(f"color: {color}; font-weight: bold; font-size: 12px;")
             card_layout.addWidget(lbl_name)
 
-            lbl_val = QLabel(f"{result['value']:.1f}")
+            val_text = f"{result['value']:.1f}" if result["value"] is not None else "—"
+            lbl_val = QLabel(val_text)
             lbl_val.setStyleSheet(
                 f"color: {result['color']}; font-size: 28px; font-weight: bold;")
             card_layout.addWidget(lbl_val)
@@ -471,6 +457,12 @@ class ReportsWindow(QMainWindow):
             lbl_cls.setStyleSheet(
                 f"color: {result['color']}; font-weight: bold; font-size: 11px;")
             card_layout.addWidget(lbl_cls)
+
+            formula_text = result.get("formula", "")
+            if formula_text:
+                lbl_formula = QLabel(formula_text)
+                lbl_formula.setStyleSheet("color: #6868A0; font-size: 9px;")
+                card_layout.addWidget(lbl_formula)
 
             if result.get("warning"):
                 lbl_warn = QLabel(f"⚠ {result['warning']}")
@@ -513,7 +505,8 @@ class ReportsWindow(QMainWindow):
             " letter-spacing: 1.2px; padding: 4px 0 2px 0;")
         return lbl
 
-    def _render_metric(self, key: str, players: list) -> QWidget:
+    def _render_metric(self, key: str, players: list,
+                       protocol_config: dict | None = None) -> QWidget:
         if key == "distance":
             return self._make_canvas_widget(
                 lambda fig, ax: plot_bar_comparison(
@@ -535,16 +528,12 @@ class ReportsWindow(QMainWindow):
         if key == "intensity_zones":
             return self._make_canvas_widget(
                 lambda fig, ax: plot_zone_bars(players, ax))
-        if key == "trajectories":
-            return self._make_grid_canvas(players, plot_trajectory)
-        if key == "heatmap":
-            return self._make_grid_canvas(players, plot_heatmap)
         if key == "sprint_count":
             return self._make_canvas_widget(
                 lambda fig, ax: plot_bar_comparison(
                     players, "sprint_count", "Sprints", "Contagem de Sprints", ax))
         if key == "vo2max":
-            return self._make_vo2max_widget(players)
+            return self._make_vo2max_widget(players, protocol_config)
         if key == "fatigue_index":
             return self._make_fatigue_widget(players)
         return QLabel(f"Métrica '{key}' não implementada.")
@@ -567,27 +556,35 @@ class ReportsWindow(QMainWindow):
             self._scroll_layout.insertWidget(0, lbl)
             return
 
+        # Se vo2max está selecionado, perguntar protocolo UMA vez antes de renderizar
+        active_metric_keys = self._active_keys
+        protocol_config = None
+        if "vo2max" in active_metric_keys:
+            protocol_config = _ask_vo2max_protocol(self)
+            if protocol_config is None:
+                return  # usuário cancelou
+
         idx = 0
-        mov_keys = [k for k, _ in _METRICS["MOVIMENTO"] if k in self._active_keys]
+        mov_keys = [k for k, _ in _METRICS["MOVIMENTO"] if k in active_metric_keys]
         if mov_keys:
             self._scroll_layout.insertWidget(idx, self._section_label("MOVIMENTO"))
             idx += 1
         for key in mov_keys:
             try:
-                widget = self._render_metric(key, players)
+                widget = self._render_metric(key, players, protocol_config)
             except Exception as e:
                 widget = QLabel(f"[Erro: {key} — {e}]")
                 widget.setStyleSheet("color: #DC2626; padding: 8px;")
             self._scroll_layout.insertWidget(idx, widget)
             idx += 1
 
-        fis_keys = [k for k, _ in _METRICS["FISIOLÓGICO"] if k in self._active_keys]
+        fis_keys = [k for k, _ in _METRICS["FISIOLÓGICO"] if k in active_metric_keys]
         if fis_keys:
             self._scroll_layout.insertWidget(idx, self._section_label("FISIOLÓGICO"))
             idx += 1
         for key in fis_keys:
             try:
-                widget = self._render_metric(key, players)
+                widget = self._render_metric(key, players, protocol_config)
             except Exception as e:
                 widget = QLabel(f"[Erro: {key} — {e}]")
                 widget.setStyleSheet("color: #DC2626; padding: 8px;")
@@ -600,6 +597,115 @@ class ReportsWindow(QMainWindow):
     def closeEvent(self, event):
         plt.close("all")
         super().closeEvent(event)
+
+
+# =============================================================================
+# VO₂max PROTOCOL DIALOG  (module-level helper, no self)
+# =============================================================================
+
+def _ask_vo2max_protocol(parent):
+    """
+    Diálogo de seleção de protocolo Yo-Yo para cálculo de VO₂max.
+    Retorna dict {"protocol": str, "level": int|None, "shuttle": int|None}
+    ou None se cancelar.
+    """
+    from PySide6.QtWidgets import (
+        QDialog, QVBoxLayout, QHBoxLayout, QLabel, QRadioButton,
+        QButtonGroup, QSpinBox, QDialogButtonBox, QWidget, QFrame
+    )
+
+    dlg = QDialog(parent)
+    dlg.setWindowTitle("Configurar cálculo de VO₂max")
+    dlg.setMinimumWidth(420)
+    dlg.setStyleSheet("""
+        QWidget { background-color: #0D0D14; color: #EEEEF8; font-size: 12px; }
+        QLabel { color: #A0A0C0; }
+        QRadioButton { color: #EEEEF8; padding: 6px; }
+        QRadioButton::indicator { width: 16px; height: 16px; border-radius: 8px;
+            border: 2px solid #303050; background: #161621; }
+        QRadioButton::indicator:checked { background: #4282FF; border-color: #4282FF; }
+        QSpinBox { background: #161621; color: #EEEEF8; border: 1px solid #222230;
+            border-radius: 6px; padding: 4px 8px; }
+        QFrame[frameShape="4"] { color: #222230; }
+    """)
+
+    layout = QVBoxLayout(dlg)
+    layout.setSpacing(12)
+    layout.setContentsMargins(20, 20, 20, 20)
+
+    lbl = QLabel("Selecione o protocolo Yo-Yo aplicado no teste:")
+    lbl.setStyleSheet("color: #EEEEF8; font-weight: bold; font-size: 13px;")
+    layout.addWidget(lbl)
+
+    sublbl = QLabel("Idade e sexo serão buscados automaticamente do cadastro de atletas.")
+    sublbl.setStyleSheet("color: #6868A0; font-size: 11px;")
+    layout.addWidget(sublbl)
+
+    sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine)
+    layout.addWidget(sep)
+
+    btn_group = QButtonGroup(dlg)
+    protocols = [
+        ("ir1",       "Yo-Yo Intermittent Recovery Level 1  (IR1)",
+                      "Mais comum · jovens e recreativos · fórmula: dist × 0.0084 + 36.4"),
+        ("ir2",       "Yo-Yo Intermittent Recovery Level 2  (IR2)",
+                      "Elite · fórmula: dist × 0.0136 + 45.3"),
+        ("endurance", "Yo-Yo Endurance  (IE1 / IE2)",
+                      "Endurance · requer nível e shuttle atingidos"),
+    ]
+    radios = {}
+    endurance_widget = QWidget()
+    end_layout = QHBoxLayout(endurance_widget)
+    end_layout.setContentsMargins(24, 0, 0, 0)
+    end_layout.addWidget(QLabel("Nível:"))
+    spin_level   = QSpinBox(); spin_level.setRange(5, 21); spin_level.setValue(9)
+    end_layout.addWidget(spin_level)
+    end_layout.addWidget(QLabel("Shuttle:"))
+    spin_shuttle = QSpinBox(); spin_shuttle.setRange(1, 16); spin_shuttle.setValue(2)
+    end_layout.addWidget(spin_shuttle)
+    end_layout.addStretch()
+    endurance_widget.setVisible(False)
+
+    for key, title, subtitle in protocols:
+        rb = QRadioButton(title)
+        rb.setStyleSheet("QRadioButton { font-weight: 500; }")
+        sub = QLabel(subtitle)
+        sub.setStyleSheet("color: #6868A0; font-size: 10px; padding-left: 28px;")
+        btn_group.addButton(rb)
+        radios[key] = rb
+        layout.addWidget(rb)
+        layout.addWidget(sub)
+        if key == "endurance":
+            layout.addWidget(endurance_widget)
+
+    radios["ir1"].setChecked(True)
+
+    def on_toggle():
+        endurance_widget.setVisible(radios["endurance"].isChecked())
+        dlg.adjustSize()
+
+    for rb in radios.values():
+        rb.toggled.connect(on_toggle)
+
+    sep2 = QFrame(); sep2.setFrameShape(QFrame.Shape.HLine)
+    layout.addWidget(sep2)
+
+    btns = QDialogButtonBox(
+        QDialogButtonBox.StandardButton.Ok |
+        QDialogButtonBox.StandardButton.Cancel)
+    btns.accepted.connect(dlg.accept)
+    btns.rejected.connect(dlg.reject)
+    layout.addWidget(btns)
+
+    if dlg.exec() != QDialog.DialogCode.Accepted:
+        return None
+
+    protocol = next(k for k, rb in radios.items() if rb.isChecked())
+    return {
+        "protocol": protocol,
+        "level":    spin_level.value()   if protocol == "endurance" else None,
+        "shuttle":  spin_shuttle.value() if protocol == "endurance" else None,
+    }
 
 
 # =============================================================================

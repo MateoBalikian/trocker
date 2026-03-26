@@ -1164,3 +1164,14 @@ class HomographyManager(QObject):
     def apply_trigger_zone_slot(self, video_path: str, project_path: str):
         from modules.trigger_zone import apply_trigger_zone as _apply_tz
         _apply_tz(video_path, project_path, parent=None)
+
+    @Slot(str, str)
+    def open_zone_viewer(self, video_path: str, project_path: str):
+        from modules.trigger_zone import open_trigger_zone_viewer, zone_exists
+        if not zone_exists(video_path, project_path):
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.warning(None, "Sem zona",
+                                "Aplique a trigger zone primeiro.")
+            return
+        self._zone_viewer = open_trigger_zone_viewer(
+            video_path, project_path, parent=None)
