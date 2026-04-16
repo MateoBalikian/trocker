@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QPixmap, QImage, QPainter, QColor, QFont, QPen, QPolygonF
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsLineItem
-from PySide6.QtCore import Qt, QPointF, QRectF
+from PySide6.QtCore import Qt, QPointF, QRectF, Signal
 
 from modules.trigger_zone import zone_exists
 
@@ -326,6 +326,8 @@ class DLTPoint(QGraphicsEllipseItem):
         return scene_rect.center()
 
 class PointSelectorWindow(QMainWindow):
+    closed = Signal()
+
     def __init__(self, frame, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Adjust Points")
@@ -458,6 +460,9 @@ class PointSelectorWindow(QMainWindow):
         self.pixmap = QPixmap.fromImage(qimg)
         self.view = QGraphicsView()
         self.view.setStyleSheet("background-color: #0d0d10; border: none;")
+        self.view.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.view.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.view.setDragMode(QGraphicsView.DragMode.NoDrag)
         self.scene = QGraphicsScene()
         self.view.setScene(self.scene)
         self.scene.addPixmap(self.pixmap)
@@ -835,14 +840,22 @@ class PointSelectorWindow(QMainWindow):
     def get_field_dimensions_result(self):
         return self.field_length, self.field_width
 
+    def closeEvent(self, event):
+        self.closed.emit()
+        super().closeEvent(event)
+
 def select_points_qt(frame, parent=None):
+    from PySide6.QtCore import QEventLoop
     selector = PointSelectorWindow(frame, parent)
     selector.setWindowModality(Qt.WindowModality.ApplicationModal)
-    selector.result = None
     selector.show()
-    loop = QApplication.instance()
-    while selector.isVisible():
-        loop.processEvents()
+    selector.raise_()
+    selector.activateWindow()
+
+    loop = QEventLoop()
+    selector.closed.connect(loop.quit)
+    loop.exec()
+
     return selector.get_points(), selector.get_field_dimensions_result()
 
 def apply_homography(csv_path, image, output_path_csv, output_path_json, parent=None):
